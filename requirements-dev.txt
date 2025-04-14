@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# Dev tools
+flake8>=6.1
+black>=23.3
+detect-secrets>=1.4
+jupyterlab>=4.0
+
+# Optional:
+ipython>=8.17
+pytest>=7.4

@@ -1,1 +1,17 @@
+streamlit>=1.30
+python-dotenv>=1.0.0
+requests>=2.31
+httpx>=0.24
+replicate>=0.15.4
 
+# RAG / Embeddings
+sentence-transformers>=2.2
+faiss-cpu>=1.7
+
+# LLM Evaluation
+transformers>=4.37
+torch>=2.1
+scikit-learn>=1.3
+
+# Data handling
+pandas>=2.1
