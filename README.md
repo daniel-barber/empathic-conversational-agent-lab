@@ -1,5 +1,9 @@
 # 🤖 Empathic Conversational Agent Lab
 
+![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green) ![Status: In Progress](https://img.shields.io/badge/status-in%20progress-yellow)
+
+
+
 This project aims to build a system with am empathic conversational agent which incorporates empathy evaluation using the EPITOME framework and subjective user feedback. 
 
 
