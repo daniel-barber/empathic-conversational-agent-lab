@@ -24,3 +24,19 @@ def create_tables():
         )
         """)
         conn.commit()
+
+def insert_chat_pair(chat_id, pair_number, user_input, llm_response, epitome_eval=None, user_feedback=None):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO chat_pairs (chat_id, pair_number, user_input, llm_response, epitome_eval, user_feedback)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            chat_id,
+            pair_number,
+            user_input,
+            llm_response,
+            str(epitome_eval) if epitome_eval else None,
+            user_feedback
+        ))
+        conn.commit()
