@@ -25,6 +25,7 @@ def create_tables():
         """)
         conn.commit()
 
+
 def insert_chat_pair(chat_id, pair_number, user_input, llm_response, epitome_eval=None, user_feedback=None):
     with get_connection() as conn:
         cursor = conn.cursor()
@@ -39,4 +40,15 @@ def insert_chat_pair(chat_id, pair_number, user_input, llm_response, epitome_eva
             str(epitome_eval) if epitome_eval else None,
             user_feedback
         ))
+        conn.commit()
+
+
+def update_user_feedback(chat_id: str, pair_number: int, user_feedback: str):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE chat_pairs
+            SET user_feedback = ?
+            WHERE chat_id = ? AND pair_number = ?
+        """, (user_feedback, chat_id, pair_number))
         conn.commit()
