@@ -16,12 +16,13 @@ class ReplicateClientChatbot:
         "Wait for the next user input."
     )
 
-    def __init__(self, api_token: str, model: str = None):
+    def __init__(self, api_token: str, model: str = None, timeout: tuple[float, float] = (5, 300)):
         """
         :param api_token: your REPLICATE_API_TOKEN
         :param model: replicate model name (defaults to LLaMA-3 8B instruct)
+        :param timeout: (connect_timeout, read_timeout)
         """
-        self.client = replicate.Client(api_token=api_token,timeout=(5, 300))
+        self.client = replicate.Client(api_token=api_token, timeout=timeout)
         self.model = model or self.DEFAULT_MODEL
 
     def generate_response(
