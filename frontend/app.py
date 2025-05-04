@@ -1,75 +1,68 @@
 import streamlit as st
+from dotenv import load_dotenv
 import replicate
-import os
 import pathlib
 import sys
 
-# Ensure project root is in path
+load_dotenv()
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
-# Set page config
-st.set_page_config(page_title="LLaMA 3 Chatbot", page_icon="🦙")
-st.title("💬 LLaMA 3 Conversational Agent")
+# Streamlit UI setup
+st.set_page_config(page_title="Empathic chatbot", page_icon="🦙")
+st.title("💬 Empathic chatbot")
 
-# Use secret manager
 from backend.utils.check_secrets import get_secret
-
-# Load API token
 replicate_token = get_secret("REPLICATE_API_TOKEN")
-replicate_client = replicate.Client(api_token=replicate_token)
+client = replicate.Client(api_token=replicate_token, timeout=(5, 120))
 
-# Initialize chat history
+# Initialize history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Input form
-with st.form("chat_form", clear_on_submit=True):
-    user_input = st.text_area("You:", height=100)
-    submitted = st.form_submit_button("Send")
+# Show past messages
+for msg in st.session_state.chat_history:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if submitted and user_input:
-    # Add user message to chat history
+# Get new user input
+if user_input := st.chat_input("What’s on your mind?"):
+    # Display user
+    with st.chat_message("user"):
+        st.markdown(user_input)
     st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-    # Create full prompt from chat history
-    prompt = ""
-    for message in st.session_state.chat_history:
-        role = message["role"]
-        content = message["content"]
-        if role == "user":
-            prompt += f"User: {content}\n"
-        else:
-            prompt += f"Assistant: {content}\n"
-    prompt += "Assistant:"
+    # Build prompt
+    system_prompt = (
+        "You are an empathetic, helpful, and friendly AI assistant. "
+        "Listen carefully and respond with warmth."
+    )
+    model_prompt = system_prompt + "\n\n"
+    for m in st.session_state.chat_history:
+        speaker = "User" if m["role"] == "user" else "Assistant"
+        model_prompt += f"{speaker}: {m['content']}\n"
+    model_prompt += "Assistant:"
 
-    # Streaming output
+    # Prepare input dict like your example
+    replicate_input = {
+        "prompt": model_prompt,
+        "top_p": 0.9,
+        "temperature": 0.7,
+        "presence_penalty": 1.15,
+        "max_tokens": 300,
+        "stop": ["\nUser:", "\nAssistant:"],
+    }
+
+    # Stream the response
     with st.chat_message("assistant"):
-        streamed_response = st.empty()
-        full_response = ""
+        placeholder = st.empty()
+        response_text = ""
         try:
-            for chunk in replicate.stream(
-                "meta/meta-llama-3-8b",
-                input={
-                    "prompt": prompt,
-                    "top_k": 0,
-                    "top_p": 0.9,
-                    "temperature": 0.7,
-                    "max_tokens": 300,
-                    "presence_penalty": 1.15,
-                    "prompt_template": "{prompt}",
-                    "stop": "\nUser:"
-                },
-            ):
-                full_response += str(chunk)
-                streamed_response.markdown(full_response)
+            for chunk in client.stream("meta/meta-llama-3-8b", input=replicate_input):
+                # chunk already contains the next piece of text
+                response_text += str(chunk)
+                placeholder.markdown(response_text)
         except Exception as e:
-            full_response = f"❌ Error: {e}"
-            streamed_response.markdown(full_response)
+            placeholder.markdown(f"❌ Error: {e}")
 
     # Save assistant reply
-    st.session_state.chat_history.append({"role": "assistant", "content": full_response})
-
-# Display chat history
-for message in st.session_state.chat_history:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    st.session_state.chat_history.append({"role": "assistant", "content": response_text})
