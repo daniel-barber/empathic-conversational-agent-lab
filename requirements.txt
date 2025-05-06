@@ -1,17 +1,25 @@
+# Web frameworks
+fastapi~=0.115.12
+uvicorn>=0.22
 streamlit>=1.30
 python-dotenv>=1.0.0
 requests>=2.31
 httpx>=0.24
+
+# LLM APIs
+openai>=1.0  # (only if you're using OpenAI)
 replicate>=0.15.4
 
 # RAG / Embeddings
 sentence-transformers>=2.2
 faiss-cpu>=1.7
 
-# LLM Evaluation
+# LLM Evaluation / EPITOME / Transformers
 transformers>=4.37
-torch>=2.1
+torch>=2.7.0
 scikit-learn>=1.3
 
-# Data handling
+# Database and data handling
+sqlalchemy>=2.0
+aiosqlite>=0.19
 pandas>=2.1

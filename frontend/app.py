@@ -47,7 +47,9 @@ if submitted and user_input:
         streamed_response = st.empty()
         full_response = ""
         try:
-            for chunk in replicate.stream(
+            st.info("Sending prompt to Replicate API...")  # Show user something is happening
+
+            stream = replicate.stream(
                 "meta/meta-llama-3-8b",
                 input={
                     "prompt": prompt,
@@ -59,10 +61,17 @@ if submitted and user_input:
                     "prompt_template": "{prompt}",
                     "stop": "\nUser:"
                 },
-            ):
+            )
+
+            for chunk in stream:
+                st.write(f"Chunk received: {chunk}")  # TEMPORARY DEBUG LINE
                 full_response += str(chunk)
                 streamed_response.markdown(full_response)
+
+            st.success("Response complete.")  # Inform user
+
         except Exception as e:
+            st.error(f"❌ Error while streaming from Replicate: {e}")
             full_response = f"❌ Error: {e}"
             streamed_response.markdown(full_response)
 
