@@ -7,7 +7,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from .replicate_client_chatbot import ReplicateClientChatbot
+from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
 
 app = FastAPI(title="Empathic Chatbot API")
 
