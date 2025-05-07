@@ -8,7 +8,7 @@ class ReplicateClientChatbot:
     streaming exactly one clean sentence per user query.
     """
 
-    DEFAULT_MODEL = "mistralai/mistral-7b-instruct"
+    DEFAULT_MODEL = "meta/meta-llama-3-8b-instruct"
     DEFAULT_SYSTEM_PROMPT = (
         "You are an empathetic, helpful, and friendly AI assistant. "
         "Answer the user's question in exactly one sentence and then stop. "
