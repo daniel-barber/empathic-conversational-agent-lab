@@ -26,6 +26,7 @@ def create_tables():
         conn.commit()
 
 def insert_chat_pair(chat_id, pair_number, user_input, llm_response, epitome_eval=None, user_feedback=None):
+    print(f"Inserting pair #{pair_number} for chat_id={chat_id}")
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
