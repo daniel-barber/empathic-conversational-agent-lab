@@ -41,3 +41,14 @@ def insert_chat_pair(chat_id, pair_number, user_input, llm_response, epitome_eva
             user_feedback
         ))
         conn.commit()
+def get_recent_pairs(chat_id: str, limit: int = 5):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT pair_number, user_input, llm_response
+            FROM chat_pairs
+            WHERE chat_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+        """, (chat_id, limit))
+        return cursor.fetchall()
