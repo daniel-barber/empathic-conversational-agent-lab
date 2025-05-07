@@ -48,46 +48,55 @@ if st.button("Evaluate Missing EPITOME"):
     # Refresh the table after evaluations
     df = load_chats_from_db()
 
-st.header("Chat Pair Evaluations")
+st.header("Chat Evaluations")
 
-for idx, row in df.iterrows():
-    with st.container(border=True):  # Card border
-        st.markdown(f"### Chat ID: `{row['chat_id']}` — Pair {row['pair_number']}")
+# Group by chat_id first
+grouped = df.groupby('chat_id')
 
-        st.markdown("#### 🧑 Seeker's Message")
-        st.markdown(f"> {row['user_input']}")
+for chat_id, group in grouped:
+    with st.container(border=True):
+        st.markdown(f"## Chat ID: `{chat_id}`")
 
-        st.markdown("#### 🤖 LLM Response")
-        st.markdown(f"> {row['llm_response']}")
+        group = group.sort_values("pair_number")
 
-        st.markdown("#### 📈 EPITOME Evaluation")
+        for idx, row in group.iterrows():
+            st.markdown(f"### ➡️ Pair {row['pair_number']}")
 
-        if row["epitome_eval"]:
-            try:
-                epitome = json.loads(row["epitome_eval"])
+            st.markdown("**🧑 Seeker's Message:**")
+            st.markdown(f"> {row['user_input']}")
 
-                # Show evaluation in table format
-                eval_data = {
-                    "Category": ["Emotional Reactions", "Interpretations", "Explorations"],
-                    "Score (0–2)": [
-                        epitome["emotional_reactions"]["score"],
-                        epitome["interpretations"]["score"],
-                        epitome["explorations"]["score"]
-                    ],
-                    "Rationale": [
-                        epitome["emotional_reactions"]["rationale"],
-                        epitome["interpretations"]["rationale"],
-                        epitome["explorations"]["rationale"]
-                    ]
-                }
-                eval_df = pd.DataFrame(eval_data)
-                st.table(eval_df)
+            st.markdown("**🤖 LLM Response:**")
+            st.markdown(f"> {row['llm_response']}")
 
-            except Exception as e:
-                st.error(f"Error parsing EPITOME evaluation: {str(e)}")
-        else:
-            st.warning("No EPITOME Evaluation available yet.")
+            st.markdown("**📈 EPITOME Evaluation:**")
 
-        if row["user_feedback"]:
-            st.markdown("#### 📝 User Feedback")
-            st.info(f"{row['user_feedback']}")
+            if row["epitome_eval"]:
+                try:
+                    epitome = json.loads(row["epitome_eval"])
+
+                    eval_data = {
+                        "Category": ["Emotional Reactions", "Interpretations", "Explorations"],
+                        "Score (0–2)": [
+                            epitome["emotional_reactions"]["score"],
+                            epitome["interpretations"]["score"],
+                            epitome["explorations"]["score"]
+                        ],
+                        "Rationale": [
+                            epitome["emotional_reactions"]["rationale"],
+                            epitome["interpretations"]["rationale"],
+                            epitome["explorations"]["rationale"]
+                        ]
+                    }
+                    eval_df = pd.DataFrame(eval_data)
+                    st.table(eval_df)
+
+                except Exception as e:
+                    st.error(f"Error parsing EPITOME evaluation: {str(e)}")
+            else:
+                st.warning("No EPITOME Evaluation available yet.")
+
+            if row["user_feedback"]:
+                st.markdown("**📝 User Feedback:**")
+                st.info(f"{row['user_feedback']}")
+
+            st.markdown("---")
