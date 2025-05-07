@@ -1,84 +1,80 @@
+# app.py – Empathic Chatbot mit Streamlit
 import streamlit as st
-import replicate
-import os
-import pathlib
-import sys
+from dotenv import load_dotenv
+import pathlib, sys, uuid
 
-# Ensure project root is in path
-sys.path.append(str(pathlib.Path(__file__).parent.parent))
+# 1) Setup Umgebung & Pfade
+load_dotenv()
+PROJECT_ROOT = pathlib.Path(__file__).parent.parent.resolve()
+sys.path.insert(0, str(PROJECT_ROOT))
 
-# Set page config
-st.set_page_config(page_title="LLaMA 3 Chatbot", page_icon="🦙")
-st.title("💬 LLaMA 3 Conversational Agent")
-
-# Use secret manager
+# 2) Imports
+from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
 from backend.utils.check_secrets import get_secret
+from backend.database.db import create_tables, insert_chat_pair, get_recent_pairs
 
-# Load API token
-replicate_token = get_secret("REPLICATE_API_TOKEN")
-replicate_client = replicate.Client(api_token=replicate_token)
+# 3) Datenbank vorbereiten
+create_tables()
 
-# Initialize chat history
+# 4) Seite konfigurieren
+st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
+st.title("💬 Empathic Chatbot")
+
+# 5) Session State initialisieren
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+    st.session_state.chat_id = str(uuid.uuid4())
+    st.session_state.pair_number = 1
 
-# Input form
-with st.form("chat_form", clear_on_submit=True):
-    user_input = st.text_area("You:", height=100)
-    submitted = st.form_submit_button("Send")
+# 6) Sidebar – Verlauf aus DB anzeigen
+with st.sidebar:
+    st.header("Settings")
+    st.write("Manage your chat session.")
+    rows = get_recent_pairs(st.session_state.chat_id, limit=5)
+    for r in reversed(rows):
+        st.markdown(f"**#{r['pair_number']}** You: {r['user_input']} → Bot: {r['llm_response']}")
+    if st.button("Clear Chat History"):
+        st.session_state.clear()
 
-if submitted and user_input:
-    # Add user message to chat history
+# 7) Chatbot initialisieren
+token = get_secret("REPLICATE_API_TOKEN")
+chatbot = ReplicateClientChatbot(api_token=token)
+
+# 8) Chatverlauf anzeigen
+for turn in st.session_state.chat_history:
+    avatar = "🧑‍💻" if turn["role"] == "user" else "🤖"
+    with st.chat_message(turn["role"], avatar=avatar):
+        st.markdown(turn["content"])
+
+# 9) Neue Eingabe verarbeiten
+if user_input := st.chat_input("Type your message..."):
+    # 1. Nutzeranzeige
+    with st.chat_message("user", avatar="🧑‍💻"):
+        st.markdown(user_input)
     st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-    # Create full prompt from chat history
-    prompt = ""
-    for message in st.session_state.chat_history:
-        role = message["role"]
-        content = message["content"]
-        if role == "user":
-            prompt += f"User: {content}\n"
-        else:
-            prompt += f"Assistant: {content}\n"
-    prompt += "Assistant:"
+    # 2. Bot-Antwort
+    with st.chat_message("assistant", avatar="🤖"), st.spinner("Thinking… 🦙"):
+        reply = chatbot.generate_response(
+            user_input=user_input,
+            history=st.session_state.chat_history[-6:]  # max 3 Paare
+        )
+        reply = reply.strip() if reply else "[Keine Antwort erhalten]"
+        st.markdown(reply)
 
-    # Streaming output
-    with st.chat_message("assistant"):
-        streamed_response = st.empty()
-        full_response = ""
-        try:
-            st.info("Sending prompt to Replicate API...")  # Show user something is happening
+    # 3. Verlauf & Datenbank aktualisieren
+    st.session_state.chat_history.append({"role": "assistant", "content": reply})
 
-            stream = replicate.stream(
-                "meta/meta-llama-3-8b",
-                input={
-                    "prompt": prompt,
-                    "top_k": 0,
-                    "top_p": 0.9,
-                    "temperature": 0.7,
-                    "max_tokens": 300,
-                    "presence_penalty": 1.15,
-                    "prompt_template": "{prompt}",
-                    "stop": "\nUser:"
-                },
-            )
+    try:
+        insert_chat_pair(
+            chat_id=st.session_state.chat_id,
+            pair_number=st.session_state.pair_number,
+            user_input=user_input,
+            llm_response=reply
+        )
+        st.session_state.pair_number += 1
+    except Exception as e:
+        st.error(f"❌ Fehler beim Speichern in die DB: {e}")
 
-            for chunk in stream:
-                st.write(f"Chunk received: {chunk}")  # TEMPORARY DEBUG LINE
-                full_response += str(chunk)
-                streamed_response.markdown(full_response)
-
-            st.success("Response complete.")  # Inform user
-
-        except Exception as e:
-            st.error(f"❌ Error while streaming from Replicate: {e}")
-            full_response = f"❌ Error: {e}"
-            streamed_response.markdown(full_response)
-
-    # Save assistant reply
-    st.session_state.chat_history.append({"role": "assistant", "content": full_response})
-
-# Display chat history
-for message in st.session_state.chat_history:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    # 4. Seite neu laden → Verlauf sichtbar
+    st.rerun()
