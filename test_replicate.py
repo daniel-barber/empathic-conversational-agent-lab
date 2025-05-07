@@ -1,6 +1,6 @@
 import replicate
 
-replicate_client = replicate.Client(api_token="r8_Rx4J9dEiHhVPIZMfk8LZoejEQjpihbt3FEflw")
+replicate_client = replicate.Client(api_token="")
 
 try:
     output = replicate_client.run(
