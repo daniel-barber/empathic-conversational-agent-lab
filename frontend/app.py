@@ -12,6 +12,23 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
 from backend.utils.check_secrets import get_secret
 from backend.database.db import create_tables, insert_chat_pair, get_recent_pairs
+from backend.llm.document_retriever_RAG import DocumentRetriever
+from PyPDF2 import PdfReader
+
+reader = PdfReader("docs/chiaseeds.pdf")
+full_text = ""
+for page in reader.pages:
+    page_text = page.extract_text()
+    if page_text:
+        full_text += page_text + "\n\n"
+
+# In sinnvolle Chunks splitten (z.B. nach Absätzen)
+chunks = [chunk.strip() for chunk in full_text.split("\n\n") if chunk.strip()]
+
+# Retriever instanziieren und Dokumente hinzufügen
+retriever = DocumentRetriever()
+retriever.add_documents(chunks)
+
 
 # 3) Datenbank vorbereiten
 create_tables()
@@ -38,7 +55,7 @@ with st.sidebar:
 
 # 7) Chatbot initialisieren
 token = get_secret("REPLICATE_API_TOKEN")
-chatbot = ReplicateClientChatbot(api_token=token)
+chatbot = ReplicateClientChatbot(api_token=token, retriever=retriever)
 
 # 8) Chatverlauf anzeigen
 for turn in st.session_state.chat_history:
@@ -52,6 +69,7 @@ if user_input := st.chat_input("Type your message..."):
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(user_input)
     st.session_state.chat_history.append({"role": "user", "content": user_input})
+
 
     # 2. Bot-Antwort
     with st.chat_message("assistant", avatar="🤖"), st.spinner("Thinking… 🦙"):
