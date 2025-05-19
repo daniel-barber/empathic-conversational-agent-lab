@@ -1,88 +1,88 @@
 # app.py – Empathic Chatbot mit Streamlit
+
 import streamlit as st
 from dotenv import load_dotenv
 import pathlib, sys, uuid
+from PyPDF2 import PdfReader
 
-# 1) Setup Umgebung & Pfade
+# 1) Set page config muss als erstes kommen
+st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
+
+# 2) Setup Umgebung & Pfade
 load_dotenv()
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# 2) Imports
+# 3) Weitere Imports
 from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
 from backend.utils.check_secrets import get_secret
 from backend.database.db import create_tables, insert_chat_pair, get_recent_pairs
 from backend.llm.document_retriever_RAG import DocumentRetriever
-from PyPDF2 import PdfReader
 
-reader = PdfReader("docs/chiaseeds.pdf")
+# 4) PDF einlesen & in Chunks splitten
+PDF_PATH = "docs/chiaseeds.pdf"
+reader = PdfReader(PDF_PATH)
 full_text = ""
 for page in reader.pages:
-    page_text = page.extract_text()
-    if page_text:
-        full_text += page_text + "\n\n"
+    text = page.extract_text() or ""
+    full_text += text + "\n\n"
+chunks = [c.strip() for c in full_text.split("\n\n") if c.strip()]
 
-# In sinnvolle Chunks splitten (z.B. nach Absätzen)
-chunks = [chunk.strip() for chunk in full_text.split("\n\n") if chunk.strip()]
-
-# Retriever instanziieren und Dokumente hinzufügen
+# 5) Retriever instanziieren
 retriever = DocumentRetriever()
-retriever.add_documents(chunks)
 
+# 6) Nur neue Chunks in Milvus einfügen
+#    Wir zählen erst, wie viele Vektoren schon drin sind:
+existing_count = retriever.collection.num_entities
+if existing_count < len(chunks):
+    # nur die „fehlenden“ Chunks hinzufügen
+    new_chunks = chunks[existing_count:]
+    retriever.add_documents(new_chunks)
+    st.info(f"{len(new_chunks)} neue Dokument-Chunks hinzugefügt.")
+else:
+    st.info("Alle Dokumente sind bereits geladen.")
 
-# 3) Datenbank vorbereiten
+# 7) Datenbank vorbereiten
 create_tables()
 
-# 4) Seite konfigurieren
-st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
+# 8) Streamlit UI
 st.title("💬 Empathic Chatbot")
 
-# 5) Session State initialisieren
+
+# Session State initialisieren
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
     st.session_state.chat_id = str(uuid.uuid4())
     st.session_state.pair_number = 1
 
-# 6) Sidebar – Verlauf aus DB anzeigen
-with st.sidebar:
-    st.header("Settings")
-    st.write("Manage your chat session.")
-    rows = get_recent_pairs(st.session_state.chat_id, limit=5)
-    for r in reversed(rows):
-        st.markdown(f"**#{r['pair_number']}** You: {r['user_input']} → Bot: {r['llm_response']}")
-    if st.button("Clear Chat History"):
-        st.session_state.clear()
-
-# 7) Chatbot initialisieren
+# Chatbot initialisieren
 token = get_secret("REPLICATE_API_TOKEN")
 chatbot = ReplicateClientChatbot(api_token=token, retriever=retriever)
 
-# 8) Chatverlauf anzeigen
+# Chatverlauf anzeigen
 for turn in st.session_state.chat_history:
     avatar = "🧑‍💻" if turn["role"] == "user" else "🤖"
     with st.chat_message(turn["role"], avatar=avatar):
         st.markdown(turn["content"])
 
-# 9) Neue Eingabe verarbeiten
+# Neue Eingabe
 if user_input := st.chat_input("Type your message..."):
-    # 1. Nutzeranzeige
+    # Nutzereingabe anzeigen
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(user_input)
     st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-
-    # 2. Bot-Antwort
+    # Bot-Antwort holen
     with st.chat_message("assistant", avatar="🤖"), st.spinner("Thinking… 🦙"):
         reply = chatbot.generate_response(
             user_input=user_input,
-            history=st.session_state.chat_history[-6:]  # max 3 Paare
-        )
-        reply = reply.strip() if reply else "[Keine Antwort erhalten]"
+            history=st.session_state.chat_history[-6:]
+        ) or "[Keine Antwort erhalten]"
+        reply = reply.strip()
         st.markdown(reply)
 
-    # 3. Verlauf & Datenbank aktualisieren
+    # Verlauf updaten & in DB speichern
     st.session_state.chat_history.append({"role": "assistant", "content": reply})
-
     try:
         insert_chat_pair(
             chat_id=st.session_state.chat_id,
@@ -94,5 +94,4 @@ if user_input := st.chat_input("Type your message..."):
     except Exception as e:
         st.error(f"❌ Fehler beim Speichern in die DB: {e}")
 
-    # 4. Seite neu laden → Verlauf sichtbar
     st.rerun()
