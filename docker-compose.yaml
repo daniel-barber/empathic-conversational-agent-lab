@@ -5,10 +5,15 @@ services:
     container_name: milvus-etcd
     ports:
       - "2379:2379"
-    command: |
-      etcd --name s1 \
-           --listen-client-urls http://0.0.0.0:2379 \
-           --advertise-client-urls http://0.0.0.0:2379
+    command:
+      - etcd
+      - --name=s1
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://milvus-etcd:2379
+    environment:
+      endpoints: "milvus-etcd:2379"
+      enableAuth: false
+
 
   # 2) MinIO as Object Storage
   minio:
@@ -36,6 +41,7 @@ services:
     ports:
       - "19530:19530"   # gRPC
       - "9091:9091"     # HTTP/UI
+
     volumes:
       - ./milvus.yaml:/milvus/configs/milvus.yaml
       - milvus_data:/var/lib/milvus
