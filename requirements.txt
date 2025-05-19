@@ -13,6 +13,8 @@ replicate>=0.15.4
 # RAG / Embeddings
 sentence-transformers>=2.2
 faiss-cpu>=1.7
+pymilvus>=2.5.9
+
 
 # LLM Evaluation / EPITOME / Transformers
 transformers>=4.37
@@ -24,6 +26,4 @@ sqlalchemy>=2.0
 aiosqlite>=0.19
 pandas>=2.1
 
-# Docker handling
-flask
-redis
+
