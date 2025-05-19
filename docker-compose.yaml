@@ -1,0 +1,48 @@
+services:
+  # 1) etcd as MetaStore
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: milvus-etcd
+    ports:
+      - "2379:2379"
+    command: |
+      etcd --name s1 \
+           --listen-client-urls http://0.0.0.0:2379 \
+           --advertise-client-urls http://0.0.0.0:2379
+
+  # 2) MinIO as Object Storage
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: milvus-minio
+    command: server /data
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9000:9000"
+    volumes:
+      - minio_data:/data
+
+  # 3) Milvus Standalone
+  milvus-standalone:
+    image: milvusdb/milvus:v2.5.10
+    container_name: milvus-standalone
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: "milvus-etcd:2379"
+      MINIO_ADDRESS:  "milvus-minio:9000"
+      MINIO_ACCESS_KEY:     "minioadmin"
+      MINIO_SECRET_KEY:     "minioadmin"
+    ports:
+      - "19530:19530"   # gRPC
+      - "9091:9091"     # HTTP/UI
+    volumes:
+      - ./milvus.yaml:/milvus/configs/milvus.yaml
+      - milvus_data:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+
+volumes:
+  minio_data:
+  milvus_data:
