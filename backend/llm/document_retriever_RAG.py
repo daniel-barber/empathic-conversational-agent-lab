@@ -77,11 +77,17 @@ class DocumentRetriever:
         # Ensure loaded
         self.collection.load()
         search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
-        res = self.collection.search(
+        results = self.collection.search(
             data=[q_emb],
             anns_field="embedding",
             param=search_params,
             limit=top_k,
             output_fields=["text"],
         )
-        return [hit.entity.get("text") for hits in res for hit in hits]
+
+
+        texts = []
+        for hits in results:
+            for hit in hits:
+                texts.append(hit.entity.get("text"))
+        return texts
