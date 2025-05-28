@@ -67,45 +67,6 @@ class DocumentRetriever:
         self.embedding_model = embedding_model or self.EMBEDDING_MODEL
 
     def read_pdf(self, file_path: str) -> List[str]:
-        """Read PDF file and split into chunks"""
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-
-            # Split into chunks of ~1000 characters
-            chunk_size = 1000
-            chunks = []
-            for i in range(0, len(text), chunk_size):
-                chunk = text[i:i + chunk_size].strip()
-                if chunk:
-                    chunks.append(chunk)
-            return chunks
-
-    def read_json(self, file_path: str) -> List[str]:
-        """Read JSON file and convert to text chunks"""
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-
-            chunks = []
-
-            def extract_text(obj, path=""):
-                if isinstance(obj, dict):
-                    for key, value in obj.items():
-                        new_path = f"{path}.{key}" if path else key
-                        extract_text(value, new_path)
-                elif isinstance(obj, list):
-                    for i, item in enumerate(obj):
-                        extract_text(item, f"{path}[{i}]")
-                else:
-                    if str(obj).strip():
-                        chunks.append(f"{path}: {obj}")
-
-            extract_text(data)
-            return chunks
-
-    def read_pdf(self, file_path: str) -> List[str]:
         """PDF-Datei lesen und in Chunks aufteilen"""
         chunks = []
         try:
@@ -220,4 +181,56 @@ class DocumentRetriever:
         """Rückwärtskompatibilität: Dokumente ohne Metadaten hinzufügen"""
         self.add_documents_with_metadata(chunks)
 
-        return [hit.entity.get("text") for hits in res for hit in hits]
+    def retrieve(self, query: str, top_k: int = 3) -> List[str]:
+        """Dokumente basierend auf Query abrufen"""
+        # Query-Embedding erstellen
+        result = self.ollama_client.embed(model=self.embedding_model, input=query)
+        q_emb = np.array(result["embeddings"][0], dtype=np.float32).tolist()
+
+        # Ensure loaded
+        self.collection.load()
+        search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
+        results = self.collection.search(
+            data=[q_emb],
+            anns_field="embedding",
+            param=search_params,
+            limit=top_k,
+            output_fields=["text", "source", "metadata"],
+        )
+
+        # Ergebnisse extrahieren
+        texts = []
+        for hits in results:
+            for hit in hits:
+                texts.append(hit.entity.get("text"))
+        return texts
+
+    def retrieve_with_metadata(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+        """Dokumente mit Metadaten basierend auf Query abrufen"""
+        # Query-Embedding erstellen
+        result = self.ollama_client.embed(model=self.embedding_model, input=query)
+        q_emb = np.array(result["embeddings"][0], dtype=np.float32).tolist()
+
+        # Ensure loaded
+        self.collection.load()
+        search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
+        results = self.collection.search(
+            data=[q_emb],
+            anns_field="embedding",
+            param=search_params,
+            limit=top_k,
+            output_fields=["text", "source", "metadata"],
+        )
+
+        # Ergebnisse mit Metadaten extrahieren
+        documents = []
+        for hits in results:
+            for hit in hits:
+                doc = {
+                    "text": hit.entity.get("text"),
+                    "source": hit.entity.get("source"),
+                    "score": hit.score,
+                    "metadata": json.loads(hit.entity.get("metadata", "{}"))
+                }
+                documents.append(doc)
+        return documents
