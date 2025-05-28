@@ -3,8 +3,6 @@ services:
   etcd:
     image: quay.io/coreos/etcd:v3.5.0
     container_name: milvus-etcd
-    ports:
-      - "2379:2379"
     command:
       - etcd
       - --name=s1
@@ -13,20 +11,26 @@ services:
     environment:
       endpoints: "milvus-etcd:2379"
       enableAuth: false
-
+    networks:
+      - chatbot-network
+    restart: unless-stopped
 
   # 2) MinIO as Object Storage
   minio:
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     container_name: milvus-minio
-    command: server /data
+    command: server /data --console-address ":9001"
     environment:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
     ports:
       - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
+    networks:
+      - chatbot-network
+    restart: unless-stopped
 
   # 3) Milvus Standalone
   milvus-standalone:
@@ -35,20 +39,60 @@ services:
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: "milvus-etcd:2379"
-      MINIO_ADDRESS:  "milvus-minio:9000"
-      MINIO_ACCESS_KEY:     "minioadmin"
-      MINIO_SECRET_KEY:     "minioadmin"
+      MINIO_ADDRESS: "milvus-minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
     ports:
-      - "19530:19530"   # gRPC
-      - "9091:9091"     # HTTP/UI
-
+      - "19530:19530"
+      - "9091:9091"
     volumes:
-      - ./milvus.yaml:/milvus/configs/milvus.yaml
       - milvus_data:/var/lib/milvus
     depends_on:
       - etcd
       - minio
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+
+  # 4) Ollama for Embeddings
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+
+  # 5) Streamlit Chatbot App
+  chatbot-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: empathic-chatbot
+    ports:
+      - "8501:8501"
+    environment:
+      - MILVUS_HOST=milvus-standalone
+      - MILVUS_PORT=19530
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - ./docs:/empathic-conversational-agent-lab/docs
+      - ./.env:/empathic-conversational-agent-lab/.env
+    depends_on:
+      - milvus-standalone
+      - ollama
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+
+networks:
+  chatbot-network:
+    driver: bridge
 
 volumes:
   minio_data:
   milvus_data:
+  ollama_data:
