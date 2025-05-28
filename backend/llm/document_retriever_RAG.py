@@ -6,7 +6,10 @@ from pymilvus import (
 import numpy as np
 import ollama
 import os
-from typing import List, Optional
+import json
+from typing import List, Optional, Dict, Any
+import PyPDF2
+from pathlib import Path
 
 
 class DocumentRetriever:
@@ -23,19 +26,21 @@ class DocumentRetriever:
             embedding_model: Optional[str] = None,
             collection_name: Optional[str] = None,
     ) -> None:
-        # 1) Ollama Client mit richtiger URL
+        # 1) Ollama Client with correct URL
         self.ollama_client = ollama.Client(host=self.OLLAMA_BASE_URL)
 
-        # 2) Verbindung zu Milvus
+        # 2) Connect to Milvus
         connections.connect(alias="default", host=self.MILVUS_HOST, port=self.MILVUS_PORT)
 
-        # 3) Collection anlegen, falls nötig
+        # 3) Create collection if needed
         name = collection_name or self.COLLECTION_NAME
         if not utility.has_collection(name):
             fields = [
                 FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
                 FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.EMB_DIM),
                 FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
+                FieldSchema(name="source", dtype=DataType.VARCHAR, max_length=1000),  # Dateiname/Quelle
+                FieldSchema(name="metadata", dtype=DataType.VARCHAR, max_length=10000),  # JSON-Metadaten
             ]
             schema = CollectionSchema(fields, description="Dokumente mit Embeddings")
             Collection(name, schema)
@@ -58,30 +63,161 @@ class DocumentRetriever:
         # 6) Collection in den Speicher laden
         self.collection.load()
 
-        # 7) Embedding-Modell setzen
+        # 7) Embedding model
         self.embedding_model = embedding_model or self.EMBEDDING_MODEL
 
-    def add_documents(self, chunks: List[str]) -> None:
+    def read_pdf(self, file_path: str) -> List[str]:
+        """Read PDF file and split into chunks"""
+        with open(file_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+
+            # Split into chunks of ~1000 characters
+            chunk_size = 1000
+            chunks = []
+            for i in range(0, len(text), chunk_size):
+                chunk = text[i:i + chunk_size].strip()
+                if chunk:
+                    chunks.append(chunk)
+            return chunks
+
+    def read_json(self, file_path: str) -> List[str]:
+        """Read JSON file and convert to text chunks"""
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+
+            chunks = []
+
+            def extract_text(obj, path=""):
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        new_path = f"{path}.{key}" if path else key
+                        extract_text(value, new_path)
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        extract_text(item, f"{path}[{i}]")
+                else:
+                    if str(obj).strip():
+                        chunks.append(f"{path}: {obj}")
+
+            extract_text(data)
+            return chunks
+
+    def read_pdf(self, file_path: str) -> List[str]:
+        """PDF-Datei lesen und in Chunks aufteilen"""
+        chunks = []
+        try:
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = ""
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+
+                # Text in Chunks von ~1000 Zeichen aufteilen
+                chunk_size = 1000
+                overlap = 200
+
+                for i in range(0, len(text), chunk_size - overlap):
+                    chunk = text[i:i + chunk_size].strip()
+                    if chunk:
+                        chunks.append(chunk)
+
+        except Exception as e:
+            print(f"Fehler beim Lesen der PDF-Datei {file_path}: {e}")
+
+        return chunks
+
+    def read_json(self, file_path: str) -> List[str]:
+        """JSON-Datei lesen und strukturiert in Chunks umwandeln"""
+        chunks = []
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                data = json.load(file)
+
+                # Rekursive Funktion zum Durchlaufen der JSON-Struktur
+                def extract_text_from_json(obj, path=""):
+                    if isinstance(obj, dict):
+                        for key, value in obj.items():
+                            new_path = f"{path}.{key}" if path else key
+                            extract_text_from_json(value, new_path)
+                    elif isinstance(obj, list):
+                        for i, item in enumerate(obj):
+                            new_path = f"{path}[{i}]"
+                            extract_text_from_json(item, new_path)
+                    else:
+                        # Textuelle Werte als Chunks speichern
+                        if isinstance(obj, (str, int, float, bool)) and str(obj).strip():
+                            chunk_text = f"{path}: {obj}"
+                            if len(chunk_text) > 10:  # Nur sinnvolle Chunks
+                                chunks.append(chunk_text)
+
+                extract_text_from_json(data)
+
+                # Zusätzlich: Gesamte JSON-Struktur als einen Chunk (falls klein genug)
+                json_str = json.dumps(data, ensure_ascii=False, indent=2)
+                if len(json_str) < 2000:  # Nur wenn JSON nicht zu groß
+                    chunks.append(f"Vollständige JSON-Struktur:\n{json_str}")
+
+        except Exception as e:
+            print(f"Fehler beim Lesen der JSON-Datei {file_path}: {e}")
+
+        return chunks
+
+    def add_file(self, file_path: str) -> None:
+        """Datei hinzufügen (automatische Erkennung von PDF/JSON)"""
+        file_path = Path(file_path)
+
+        if not file_path.exists():
+            print(f"Datei nicht gefunden: {file_path}")
+            return
+
+        file_extension = file_path.suffix.lower()
+        filename = file_path.name
+
+        chunks = []
+        if file_extension == '.pdf':
+            chunks = self.read_pdf(str(file_path))
+        elif file_extension == '.json':
+            chunks = self.read_json(str(file_path))
+        else:
+            print(f"Nicht unterstütztes Dateiformat: {file_extension}")
+            return
+
+        if not chunks:
+            print(f"Keine Inhalte in Datei gefunden: {filename}")
+            return
+
+        # Embeddings erstellen und hinzufügen
+        self.add_documents_with_metadata(chunks, filename, {"file_type": file_extension})
+        print(f"Datei {filename} erfolgreich hinzugefügt ({len(chunks)} Chunks)")
+
+    def add_documents_with_metadata(self, chunks: List[str], source: str = "", metadata: Dict[str, Any] = None) -> None:
+        """Dokumente mit Metadaten hinzufügen"""
+        if not chunks:
+            return
+
         embs = []
+        sources = []
+        metadata_list = []
+
+        metadata_json = json.dumps(metadata or {}, ensure_ascii=False)
+
         for text in chunks:
+            # Embedding erstellen
             result = self.ollama_client.embed(model=self.embedding_model, input=text)
             emb = np.array(result["embeddings"][0], dtype=np.float32).tolist()
             embs.append(emb)
-        self.collection.insert([embs, chunks])
+            sources.append(source)
+            metadata_list.append(metadata_json)
+
+        # In Milvus einfügen
+        self.collection.insert([embs, chunks, sources, metadata_list])
         self.collection.flush()
 
-    def retrieve(self, query: str, top_k: int = 3) -> List[str]:
-        result = self.ollama_client.embed(model=self.embedding_model, input=query)
-        q_emb = np.array(result["embeddings"][0], dtype=np.float32).tolist()
+    def add_documents(self, chunks: List[str]) -> None:
+        """Rückwärtskompatibilität: Dokumente ohne Metadaten hinzufügen"""
+        self.add_documents_with_metadata(chunks)
 
-        # Ensure loaded
-        self.collection.load()
-        search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
-        res = self.collection.search(
-            data=[q_emb],
-            anns_field="embedding",
-            param=search_params,
-            limit=top_k,
-            output_fields=["text"],
-        )
         return [hit.entity.get("text") for hits in res for hit in hits]
