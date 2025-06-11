@@ -65,6 +65,8 @@ services:
     networks:
       - chatbot-network
     restart: unless-stopped
+    entrypoint: >
+      sh -c "ollama serve & sleep 5 && ollama run nomic-embed-text && tail -f /dev/null"
 
   # 5) Streamlit Chatbot App
   chatbot-app:
