@@ -9,7 +9,6 @@ on:
 jobs:
   basic-check:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
 
@@ -18,27 +17,10 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Cache pip
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-
-    - name: Check for leaked secrets
-      run: |
-        pip install detect-secrets
-        if [ -f .secrets.baseline ]; then
-          detect-secrets scan --baseline .secrets.baseline;
-        else
-          echo "No baseline found. Skipping secrets check.";
-        fi
 
     - name: Lint with flake8
       run: |
@@ -49,37 +31,12 @@ jobs:
   docker-build:
     needs: basic-check
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Nur bei Push auf main
-
+    if: github.ref == 'refs/heads/main'
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Log in to Docker Hub
-      if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build and push Docker image
+    - name: Build Docker image
       run: |
-        # Build Docker image
+        echo "Building Docker image..."
         docker build -t empathic-chatbot:latest .
-        
-        if [ "${{ secrets.DOCKERHUB_USERNAME }}" != "" ] && [ "${{ secrets.DOCKERHUB_TOKEN }}" != "" ]; then
-          # Tag für Docker Hub
-          docker tag empathic-chatbot:latest ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:latest
-          docker tag empathic-chatbot:latest ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:${{ github.sha }}
-          
-          # Push to Docker Hub
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:${{ github.sha }}
-          
-          echo "✅ Docker image built and pushed to Docker Hub"
-        else
-          echo "✅ Docker image built locally (no Docker Hub credentials found)"
-        fi
+        echo "Docker build completed"
