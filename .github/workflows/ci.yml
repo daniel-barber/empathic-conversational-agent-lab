@@ -44,3 +44,42 @@ jobs:
       run: |
         pip install flake8
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+
+  docker-build:
+    needs: basic-check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Nur bei Push auf main
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      run: |
+        # Build Docker image
+        docker build -t empathic-chatbot:latest .
+        
+        if [ "${{ secrets.DOCKERHUB_USERNAME }}" != "" ] && [ "${{ secrets.DOCKERHUB_TOKEN }}" != "" ]; then
+          # Tag für Docker Hub
+          docker tag empathic-chatbot:latest ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:latest
+          docker tag empathic-chatbot:latest ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:${{ github.sha }}
+          
+          # Push to Docker Hub
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/empathic-chatbot:${{ github.sha }}
+          
+          echo "✅ Docker image built and pushed to Docker Hub"
+        else
+          echo "✅ Docker image built locally (no Docker Hub credentials found)"
+        fi
