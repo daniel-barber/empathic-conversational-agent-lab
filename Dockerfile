@@ -10,7 +10,9 @@ WORKDIR /empathic-conversational-agent-lab
 
 # Python dependencies zuerst (für besseres Caching)
 COPY requirements.txt .
+RUN pip install --upgrade pip
 RUN pip3 install --no-cache-dir -r requirements.txt
+
 
 # Application code
 COPY . .

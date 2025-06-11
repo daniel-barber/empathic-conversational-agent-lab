@@ -54,21 +54,7 @@ services:
       - chatbot-network
     restart: unless-stopped
 
-  # 4) Ollama for Embeddings
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - chatbot-network
-    restart: unless-stopped
-    entrypoint: >
-      sh -c "ollama serve & sleep 5 && ollama run nomic-embed-text && tail -f /dev/null"
-
-  # 5) Streamlit Chatbot App
+  # 4) Streamlit Chatbot App (inkl. Embedding-Modell lokal)
   chatbot-app:
     build:
       context: .
@@ -79,13 +65,11 @@ services:
     environment:
       - MILVUS_HOST=milvus-standalone
       - MILVUS_PORT=19530
-      - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - ./docs:/empathic-conversational-agent-lab/docs
       - ./.env:/empathic-conversational-agent-lab/.env
     depends_on:
       - milvus-standalone
-      - ollama
     networks:
       - chatbot-network
     restart: unless-stopped
@@ -97,4 +81,3 @@ networks:
 volumes:
   minio_data:
   milvus_data:
-  ollama_data:
