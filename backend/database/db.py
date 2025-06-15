@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from pathlib import Path
 import re
@@ -6,7 +7,9 @@ DB_PATH = Path(__file__).parent.parent.parent / "database.db"
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # optional: nicer access to columns
+    conn.row_factory = sqlite3.Row
+    print(f"Connecting to database at {DB_PATH}")
+
     return conn
 
 def create_tables():
@@ -134,3 +137,16 @@ def get_chat_feedback_summary(chat_id: str):
             ORDER BY pair_number
         """, (chat_id,))
         return cursor.fetchall()
+
+
+def update_epitome_eval(chat_id: str, pair_number: int, epitome_eval_json: dict):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        print(f"Updating chat_id={chat_id}, pair_number={pair_number}...")
+        cursor.execute("""
+            UPDATE chat_pairs
+            SET epitome_eval = ?
+            WHERE chat_id = ? AND pair_number = ?
+        """, (json.dumps(epitome_eval_json), chat_id, pair_number))
+        conn.commit()
+        print(f"Rows affected: {cursor.rowcount}")
