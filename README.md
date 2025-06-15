@@ -7,6 +7,23 @@
 
 This project aims to build a system with am empathic conversational agent which incorporates empathy evaluation using the EPITOME framework and subjective user feedback. 
 
+## Run the App
+In the root directory (where docker-compose.yml is located), run:
+```
+docker-compose up --build
+```
+This builds the chatbot image and starts all services.
+The app will be available at http://localhost:8501
+
+To run in the background (recommended for regular use):
+```
+docker-compose up -d
+```
+To stop all services:
+```
+docker-compose down
+```
+
 
 
 ## 🎓 Academic Context

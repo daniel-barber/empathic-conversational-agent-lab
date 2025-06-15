@@ -133,12 +133,17 @@ class DocumentRetriever:
             return
         embs = self.model.encode(chunks, convert_to_numpy=True).tolist()
         metadata_json = json.dumps(metadata or {}, ensure_ascii=False)
-        self.collection.insert([
-            embs,
-            chunks,
-            [source] * len(chunks),
-            [metadata_json] * len(chunks)
-        ])
+        data = [
+            {
+                "text": chunk,
+                "embedding": emb,
+                "source": source,
+                "metadata": metadata_json
+            }
+            for chunk, emb in zip(chunks, embs)
+        ]
+
+        self.collection.insert(data)
         self.collection.flush()
 
     def add_documents(self, chunks: List[str]) -> None:
