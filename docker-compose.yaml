@@ -67,7 +67,7 @@ services:
       - MILVUS_PORT=19530
     volumes:
       - ./docs:/empathic-conversational-agent-lab/docs
-      - ./.env:/empathic-conversational-agent-lab/.env
+
     depends_on:
       - milvus-standalone
     networks:
