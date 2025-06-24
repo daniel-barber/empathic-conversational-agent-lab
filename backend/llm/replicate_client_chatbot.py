@@ -3,6 +3,15 @@ from typing import Dict, List, Optional, Tuple
 
 import replicate
 from backend.llm.document_retriever_RAG import DocumentRetriever
+from backend.database.db import create_tables, get_active_prompt
+
+
+def __init__(self, api_token: str, model: Optional[str] = None,
+             retriever: Optional[DocumentRetriever] = None,
+             timeout: Tuple[float, float] = (5, 300)) -> None:
+    create_tables()
+    self.client = replicate.Client(api_token=api_token, timeout=timeout)
+    ...
 
 
 class ReplicateClientChatbot:
@@ -60,7 +69,8 @@ class ReplicateClientChatbot:
            conversation history, and the user query.
         3. Stream and truncate the model response at the first stop marker.
         """
-        prompt_text = system_prompt or self.DEFAULT_SYSTEM_PROMPT
+        active_prompt = get_active_prompt() or self.DEFAULT_SYSTEM_PROMPT
+        prompt_text = system_prompt or active_prompt
 
         # Fetch context from the retriever
         docs = self.retriever.retrieve(query=user_input, top_k=context_k)

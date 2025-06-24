@@ -68,6 +68,7 @@ services:
     volumes:
       - ./docs:/empathic-conversational-agent-lab/docs
       - ./data:/empathic-conversational-agent-lab/data
+
     depends_on:
       - milvus-standalone
     networks:

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import pathlib, sys, uuid
 from PyPDF2 import PdfReader
 
+
 # 1) Set page config must come first
 st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
 
@@ -17,7 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
 from backend.utils.check_secrets import get_secret
 from backend.database.db import create_tables, insert_chat_pair, get_recent_pairs, update_user_feedback, \
-    get_feedback_statistics
+    get_feedback_statistics, get_active_prompt_id
 from backend.llm.document_retriever_RAG import DocumentRetriever
 
 # 4) Read PDF & split into chunks
@@ -67,50 +68,28 @@ for i, turn in enumerate(st.session_state.chat_history):
         st.markdown(turn["content"])
 
         # Show feedback section only for bot responses
-        if turn["role"] == "assistant" and i not in st.session_state.feedback_given:
-            st.markdown("---")
-            col1, col2 = st.columns([3, 1])
+        if turn["role"] == "assistant":
+            # Disable the widget once this reply has already been rated
+            disabled = i in st.session_state.feedback_given
 
-            with col1:
-                st.markdown("**How empathic was this response?**")
-                feedback_key = f"feedback_{i}"
+            st.caption("How empathic was this response?")
 
-                # Likert scale with radio buttons
-                feedback_value = st.radio(
-                    "Rating:",
-                    options=[1, 2, 3, 4, 5],
-                    format_func=lambda x: {
-                        1: "1 - Very poor 😞",
-                        2: "2 - Poor 😕",
-                        3: "3 - Neutral 😐",
-                        4: "4 - Good 😊",
-                        5: "5 - Excellent 😍"
-                    }[x],
-                    key=feedback_key,
-                    horizontal=True
+            raw_score = st.feedback(
+                options="faces",  # or "faces", "thumbs"
+                key=f"fb_{st.session_state.chat_id}_{i}",
+                disabled=disabled,
+            )
+
+            # When the user clicks, Streamlit re-runs and raw_score gets a value.
+            if raw_score is not None and not disabled:
+                stars = raw_score + 1  # st.feedback returns 0-4 → map to 1-5
+                update_user_feedback(
+                    chat_id=st.session_state.chat_id,
+                    pair_number=(i // 2) + 1,
+                    user_feedback=stars,
                 )
-
-            with col2:
-                if st.button("✅ Submit feedback", key=f"submit_{i}"):
-                    try:
-                        # Save feedback using your existing update function
-                        # Calculate the actual pair_number for this response
-                        response_pair_number = (i // 2) + 1
-
-                        # Convert rating to string for storage in user_feedback field
-                        feedback_text = f"Rating: {feedback_value}/5"
-
-                        update_user_feedback(
-                            chat_id=st.session_state.chat_id,
-                            pair_number=response_pair_number,
-                            user_feedback=feedback_text
-                        )
-
-                        st.session_state.feedback_given.add(i)
-                        st.success(f"Thank you for your feedback! (Rating: {feedback_value})")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error saving feedback: {e}")
+                st.session_state.feedback_given.add(i)
+                st.toast(f"⭐ Thanks for the {stars}-star rating!")
 
 # New input
 if user_input := st.chat_input("Type your message..."):
@@ -135,7 +114,8 @@ if user_input := st.chat_input("Type your message..."):
             chat_id=st.session_state.chat_id,
             pair_number=st.session_state.pair_number,
             user_input=user_input,
-            llm_response=reply
+            llm_response=reply,
+            prompt_id=get_active_prompt_id(),
         )
         st.session_state.pair_number += 1
     except Exception as e:

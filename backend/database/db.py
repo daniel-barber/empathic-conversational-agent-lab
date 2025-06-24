@@ -3,18 +3,64 @@ import sqlite3
 from pathlib import Path
 import re
 
-DB_PATH = Path(__file__).parent.parent.parent / "database.db"
+DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "database.db"
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     print(f"Connecting to database at {DB_PATH}")
-
     return conn
+
+# ---------- Prompt helpers ----------
+def create_prompt(version_name: str, prompt_text: str, activate: bool = True):
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        if activate:
+            cur.execute("UPDATE prompt_versions SET is_active = 0 WHERE is_active = 1")
+        cur.execute(
+            "INSERT INTO prompt_versions (version_name, prompt_text, is_active) VALUES (?,?,?)",
+            (version_name, prompt_text, int(activate)),
+        )
+
+def list_prompts():
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        return cur.execute(
+            "SELECT id, version_name, created_at, is_active FROM prompt_versions ORDER BY created_at DESC"
+        ).fetchall()
+
+def get_prompt_text(prompt_id: int):
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        row = cur.execute(
+            "SELECT prompt_text FROM prompt_versions WHERE id = ?", (prompt_id,)
+        ).fetchone()
+        return row[0] if row else ""
+
+def set_active_prompt(prompt_id: int):
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        cur.execute("UPDATE prompt_versions SET is_active = 0 WHERE is_active = 1")
+        cur.execute("UPDATE prompt_versions SET is_active = 1 WHERE id = ?", (prompt_id,))
+
+def get_active_prompt():
+    with sqlite3.connect(DB_PATH) as con:
+        cur = con.cursor()
+        row = cur.execute(
+            "SELECT prompt_text FROM prompt_versions WHERE is_active = 1 LIMIT 1"
+        ).fetchone()
+        return row[0] if row else ""
+
+def get_active_prompt_id() -> int | None:
+    with sqlite3.connect(DB_PATH) as con:
+        row = con.execute("SELECT id FROM prompt_versions WHERE is_active = 1 LIMIT 1" ).fetchone()
+        return row[0] if row else None
+
 
 def create_tables():
     with get_connection() as conn:
         cursor = conn.cursor()
+
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS chat_pairs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,27 +70,48 @@ def create_tables():
             llm_response TEXT NOT NULL,
             epitome_eval TEXT,
             user_feedback TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            prompt_id     INTEGER
+
         )
         """)
+
+        cursor.execute("""
+                CREATE TABLE IF NOT EXISTS prompt_versions (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    version_name TEXT    NOT NULL,
+                    prompt_text  TEXT    NOT NULL,
+                    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_active    BOOLEAN DEFAULT 0    -- exactly one row is 1
+                )
+                """)
+
+        # --- auto-add prompt_id if missing ---
+        cursor.execute("PRAGMA table_info(chat_pairs)")
+        if "prompt_id" not in [c[1] for c in cursor.fetchall()]:
+            cursor.execute("ALTER TABLE chat_pairs ADD COLUMN prompt_id INTEGER;")
+
         conn.commit()
 
 
-def insert_chat_pair(chat_id, pair_number, user_input, llm_response, epitome_eval=None, user_feedback=None):
+def insert_chat_pair(chat_id, pair_number, user_input, llm_response, prompt_id=None, epitome_eval=None, user_feedback=None):
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO chat_pairs (chat_id, pair_number, user_input, llm_response, epitome_eval, user_feedback)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO chat_pairs (chat_id, pair_number, user_input, llm_response, prompt_id, epitome_eval, user_feedback)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             chat_id,
             pair_number,
             user_input,
             llm_response,
+            prompt_id,
             str(epitome_eval) if epitome_eval else None,
-            user_feedback
+            user_feedback,
+
         ))
         conn.commit()
+
 def get_recent_pairs(chat_id: str, limit: int = 5):
     with get_connection() as conn:
         cursor = conn.cursor()
