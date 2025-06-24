@@ -11,6 +11,8 @@ services:
     environment:
       endpoints: "milvus-etcd:2379"
       enableAuth: false
+    ports:
+      - "2379:2379"
     networks:
       - chatbot-network
     restart: unless-stopped
