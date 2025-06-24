@@ -69,12 +69,37 @@ services:
       - ./docs:/empathic-conversational-agent-lab/docs
       - ./data:/empathic-conversational-agent-lab/data
 
-
     depends_on:
       - milvus-standalone
     networks:
       - chatbot-network
     restart: unless-stopped
+
+# 5) Reverse-proxy for HTTP/HTTPS
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/letsencrypt
+    depends_on:
+      - chatbot-app
+    networks:
+      - chatbot-network
+    restart: unless-stopped
+
+  # 6) Optional auto-updater
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup
+    restart: unless-stopped
+
 
 networks:
   chatbot-network:
