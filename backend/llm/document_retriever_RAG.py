@@ -16,8 +16,7 @@ class DocumentRetriever:
     MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
     MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
     COLLECTION_NAME = "documents"
-    EMB_DIM = 384
-    EMBEDDING_MODEL = "intfloat/e5-small-v2"
+    EMBEDDING_MODEL = "intfloat/multilingual-e5-base"
 
     def __init__(
             self,
@@ -26,6 +25,8 @@ class DocumentRetriever:
     ) -> None:
         # 1) SentenceTransformer
         self.model = SentenceTransformer(embedding_model or self.EMBEDDING_MODEL)
+        self.EMB_DIM = self.model.get_sentence_embedding_dimension()
+
 
         # 2) Connect to Milvus
         connections.connect(alias="default", host=self.MILVUS_HOST, port=self.MILVUS_PORT)
@@ -67,8 +68,8 @@ class DocumentRetriever:
                 text = ""
                 for page in pdf_reader.pages:
                     text += page.extract_text() + "\n"
-                chunk_size = 1000
-                overlap = 200
+                chunk_size = 500
+                overlap = 100
                 for i in range(0, len(text), chunk_size - overlap):
                     chunk = text[i:i + chunk_size].strip()
                     if chunk:
