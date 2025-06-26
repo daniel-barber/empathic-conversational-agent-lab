@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import pathlib, sys, uuid
 from PyPDF2 import PdfReader
 
+from backend.services.epitome_evaluation import call_epitome_model
 
 # 1) Set page config must come first
 st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
@@ -18,31 +19,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
 from backend.utils.check_secrets import get_secret
 from backend.database.db import create_tables, insert_chat_pair, get_recent_pairs, update_user_feedback, \
-    get_feedback_statistics, get_active_prompt_id
+    get_feedback_statistics, get_active_prompt_id, update_epitome_eval
 from backend.llm.document_retriever_RAG import DocumentRetriever
-
-# 4) Read PDF & split into chunks
-PDF_PATH = "docs/chiaseeds.pdf"
-reader = PdfReader(PDF_PATH)
-full_text = ""
-for page in reader.pages:
-    text = page.extract_text() or ""
-    full_text += text + "\n\n"
-chunks = [c.strip() for c in full_text.split("\n\n") if c.strip()]
 
 # 5) Initialize retriever
 retriever = DocumentRetriever()
-
-# 6) Only add new chunks to Milvus
-#    First count how many vectors are already in there:
-existing_count = retriever.collection.num_entities
-if existing_count < len(chunks):
-    # only add the "missing" chunks
-    new_chunks = chunks[existing_count:]
-    retriever.add_documents(new_chunks)
-    st.info(f"{len(new_chunks)} new document chunks added.")
-else:
-    st.info("All documents are already loaded.")
 
 # 7) Prepare database
 create_tables()
@@ -89,16 +70,16 @@ for i, turn in enumerate(st.session_state.chat_history):
                     user_feedback=stars,
                 )
                 st.session_state.feedback_given.add(i)
-                st.toast(f"⭐ Thanks for the {stars}-star rating!")
+                st.toast(f"Thanks for your feedback!")
 
 # New input
 if user_input := st.chat_input("Type your message..."):
-    # Display user input
+    # 1) display user
     with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(user_input)
     st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-    # Get bot response
+    # 2) get bot response
     with st.chat_message("assistant", avatar="🤖"), st.spinner("Thinking… 🦙"):
         reply = chatbot.generate_response(
             user_input=user_input,
@@ -107,21 +88,37 @@ if user_input := st.chat_input("Type your message..."):
         reply = reply.strip()
         st.markdown(reply)
 
-    # Update history & save to DB
+    # 3) record in history & DB, then EPITOME–evaluate
     st.session_state.chat_history.append({"role": "assistant", "content": reply})
     try:
+        # insert the new chat pair
+        this_pair = st.session_state.pair_number
         insert_chat_pair(
             chat_id=st.session_state.chat_id,
-            pair_number=st.session_state.pair_number,
+            pair_number=this_pair,
             user_input=user_input,
             llm_response=reply,
             prompt_id=get_active_prompt_id(),
         )
-        st.session_state.pair_number += 1
-    except Exception as e:
-        st.error(f"❌ Error saving to DB: {e}")
 
+        # immediately evaluate empathy and save
+        with st.spinner("Evaluating empathy…"):
+            evaluation = call_epitome_model(user_input, reply)
+        update_epitome_eval(
+            chat_id=st.session_state.chat_id,
+            pair_number=this_pair,
+            evaluation=evaluation
+        )
+
+        # only bump the counter if everything succeeded
+        st.session_state.pair_number += 1
+
+    except Exception as e:
+        st.error(f"❌ Error saving or evaluating chat pair: {e}")
+
+    # 4) rerun so the UI updates
     st.rerun()
+
 
 # Optional: Feedback statistics in sidebar
 with st.sidebar:
