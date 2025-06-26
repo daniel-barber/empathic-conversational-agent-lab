@@ -1,5 +1,5 @@
 import json
-
+import re
 import replicate
 import os
 
@@ -17,6 +17,34 @@ replicate.Client(api_token=REPLICATE_API_TOKEN)
 #         "interpretations": {"score": 2, "rationale": "You understood their pain."},
 #         "explorations": {"score": 2, "rationale": "You invited further sharing."}
 #     }
+
+def safe_parse_json(raw: str) -> dict:
+    """
+    Try to parse `raw` as JSON, cleaning common issues:
+     - Strips markdown fences like ```json ... ```
+     - Extracts the first {...} block
+     - If missing a trailing '}', appends it
+    """
+    # 1) strip markdown fences
+    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.IGNORECASE)
+
+    # 2) extract first {...} block
+    m = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+    if m:
+        cleaned = m.group(0)
+
+    # 3) try loading
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # if it’s missing exactly one '}', append it and retry
+        if cleaned.count("{") == cleaned.count("}") - 1:
+            try:
+                return json.loads(cleaned + "}")
+            except json.JSONDecodeError:
+                pass
+        # if still broken, raise with context
+        raise RuntimeError(f"Invalid JSON from model after cleaning: {cleaned!r}")
 
 
 def call_epitome_model(user_input: str, llm_response: str) -> dict:
@@ -54,8 +82,5 @@ Now evaluate and emit *only* the JSON object conforming to the schema above. Sto
     # 3) Trim whitespace/newlines
     raw = raw.strip()
 
-    # 4) Parse JSON (or raise a clear error)
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Invalid JSON from model: {raw!r}") from e
+    # Use our safe parser instead of direct json.loads
+    return safe_parse_json(raw)
