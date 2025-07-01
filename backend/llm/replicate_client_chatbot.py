@@ -1,37 +1,21 @@
 # backend/llm/replicate_client_chatbot.py
-from typing import Dict, List, Optional, Tuple
 
+from typing import List, Optional, Dict, Tuple
 import replicate
+from langdetect import detect
 from backend.llm.document_retriever_RAG import DocumentRetriever
 from backend.database.db import create_tables, get_active_prompt
 
-
-def __init__(self, api_token: str, model: Optional[str] = None,
-             retriever: Optional[DocumentRetriever] = None,
-             timeout: Tuple[float, float] = (5, 300)) -> None:
-    create_tables()
-    self.client = replicate.Client(api_token=api_token, timeout=timeout)
-    ...
-
-
 class ReplicateClientChatbot:
     """
-    Chatbot that integrates Replicate's LLaMA-3 model
+    Chatbot that integrates Replicate's GPT-4.1 Mini model
     with Retrieval-Augmented Generation (RAG).
     """
-    print(f"[DEBUG] Loading ReplicateClientChatbot from {__file__}")
-
-    DEFAULT_MODEL: str = "meta/meta-llama-3-8b-instruct"
-    DEFAULT_SYSTEM_PROMPT: str = (
-        "You are a calm, empathetic, and friendly assistant."
-        "You respond thoughtfully, communicate with kindness, and strive to make the user feel understood and supported."
-        "Use the provided context to answer questions clearly and accurately, without quoting it verbatim."
-        "Incorporate information retrieved via RAG to enhance your answers, but do not rely on it exclusively."
-        "Never hallucinate or fabricate information, and do not perform any form of validation or calculation."
-        "Provide only the final answer—do not include explanations, scores, system notes, or commentary of any kind."
-        "Your output must consist solely of the answer text no RAG SCORE, NO RAG(Risk Assessment Grid) and no Notes be precises!!."
-        "If a question cannot be answered based on the available information, acknowledge this honestly and refrain from speculation."
-        "be strict"
+    DEFAULT_MODEL = "openai/gpt-4.1-mini"
+    DEFAULT_SYSTEM_PROMPT = (
+        "You are a calm, empathic assistant. "
+        "Use only the provided context; do not hallucinate. "
+        "If you cannot answer from the context, say so honestly."
     )
 
     def __init__(
@@ -40,71 +24,77 @@ class ReplicateClientChatbot:
         model: Optional[str] = None,
         retriever: Optional[DocumentRetriever] = None,
         timeout: Tuple[float, float] = (5, 300)
-    ) -> None:
-        """
-        :param api_token: Replicate API token
-        :param model: Optional override for the LLaMA-3 model
-        :param retriever: DocumentRetriever instance for RAG
-        :param timeout: Client timeouts (connect, read)
-        """
+    ):
+        create_tables()
         self.client = replicate.Client(api_token=api_token, timeout=timeout)
-        self.model: str = model or self.DEFAULT_MODEL
-        self.retriever: DocumentRetriever = retriever or DocumentRetriever()
+        self.model = model or self.DEFAULT_MODEL
+        self.retriever = retriever or DocumentRetriever()
 
     def generate_response(
         self,
         user_input: str,
         history: Optional[List[Dict[str, str]]] = None,
         system_prompt: Optional[str] = None,
-        top_p: float = 0.9,
-        temperature: float = 0.7,
-        presence_penalty: float = 1.15,
-        max_tokens: int = 100,
-        stop_sequences: Optional[List[str]] = None,
-        context_k: int = 30
+        top_p: float = 1.0,
+        temperature: float = 1.0
     ) -> str:
-        """
-        1. Retrieve top-k relevant chunks for the new user input.
-        2. Build a prompt combining system instructions, retrieved context,
-           conversation history, and the user query.
-        3. Stream and truncate the model response at the first stop marker.
-        """
-        active_prompt = get_active_prompt() or self.DEFAULT_SYSTEM_PROMPT
-        prompt_text = system_prompt or active_prompt
+        # 1) Choose system prompt
+        prompt_text = system_prompt or get_active_prompt() or self.DEFAULT_SYSTEM_PROMPT
 
-        # Fetch context from the retriever
-        docs = self.retriever.retrieve(query=user_input, top_k=context_k)
-        context_block = "\n".join(f"- {doc}" for doc in docs)
+        # 2) Retrieve and bullet‐list the RAG context
+        raw_docs = self.retriever.retrieve(query=user_input, top_k=5)
+        context_str = "\n".join(f"- {chunk}" for chunk in raw_docs)
 
-        # Assemble the full prompt
-        full_prompt = (
-            f"{prompt_text}\n\n"
-            f"Use only the following context. Do not invent details:\n{context_block}\n\n"
-        )
+        # 3) Detect the user’s language
+        user_lang = detect(user_input)  # e.g. 'en', 'de'
+
+        # 4) If the user is English, pre-translate German context into English
+        if user_lang.startswith("en"):
+            translation_payload = {
+                "prompt": context_str,
+                "system_prompt": (
+                    "You are a translation assistant. "
+                    "Translate these bullet points into clear English, "
+                    "preserving meaning but dropping any German-specific formatting."
+                ),
+                "temperature": 0.0,
+                "top_p": 1.0,
+                "max_completion_tokens": 512,
+            }
+            translated = ""
+            for chunk in replicate.run(
+                self.model,
+                input=translation_payload,
+                stream=True
+            ):
+                translated += chunk
+            context_str = translated.strip()
+
+        # 5) Build the single-prompt string
+        prompt = f"Context:\n{context_str}\n\n"
         if history:
             for turn in history:
-                role = "User" if turn.get("role") == "user" else "Assistant"
-                full_prompt += f"{role}: {turn.get('content')}\n"
-        full_prompt += f"User: {user_input}\nAssistant:"
+                who = "User" if turn["role"] == "user" else "Assistant"
+                prompt += f"{who}: {turn['content']}\n"
+        prompt += f"User: {user_input}\nAssistant:"
 
-        # Prepare and send payload
-        stops = stop_sequences or ["\nUser:", "\nAssistant:"]
+        # 6) Package exactly as the gpt-4.1-mini schema expects
         payload = {
-            "prompt": full_prompt,
-            "prompt_template": "{prompt}",
-            "top_p": top_p,
+            "prompt": prompt,
+            "system_prompt": prompt_text,
             "temperature": temperature,
-            "presence_penalty": presence_penalty,
-            "max_tokens": max_tokens,
-            "stop": stops
+            "top_p": top_p,
+            "max_completion_tokens": 512,
         }
+        print(">>> OUTGOING PAYLOAD:", payload)
 
-        # Stream response and cut at marker
+        # 7) Stream the response
         response = ""
-        for chunk in self.client.stream(self.model, input=payload):
-            response += str(chunk)
-            for marker in stops:
-                idx = response.find(marker)
-                if idx != -1:
-                    return response[:idx].strip()
+        for chunk in replicate.run(
+            self.model,
+            input=payload,
+            stream=True
+        ):
+            response += chunk
+
         return response.strip()

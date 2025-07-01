@@ -5,7 +5,7 @@ streamlit>=1.30
 python-dotenv>=1.0.0
 requests>=2.31
 httpx>=0.24
-numpy
+numpy~=2.2.4
 
 
 # LLM APIs
@@ -16,7 +16,9 @@ replicate>=0.15.4
 sentence-transformers>=2.2
 faiss-cpu>=1.7
 pymilvus>=2.5.9
-PyPDF2
+PyPDF2~=3.0.1
+tiktoken>=0.6.0
+langdetect>=1.0.9
 
 # LLM Evaluation / EPITOME / Transformers
 transformers>=4.37
@@ -34,3 +36,5 @@ requests
 urllib3
 
 
+
+pydantic~=2.11.3

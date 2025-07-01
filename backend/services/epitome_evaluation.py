@@ -1,5 +1,5 @@
 import json
-
+import re
 import replicate
 import os
 
@@ -18,16 +18,38 @@ replicate.Client(api_token=REPLICATE_API_TOKEN)
 #         "explorations": {"score": 2, "rationale": "You invited further sharing."}
 #     }
 
+def safe_parse_json(raw: str) -> dict:
+    # strip any ```json fences
+    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.IGNORECASE)
+    # pull out the first “{……”
+    if "{" in cleaned:
+        cleaned = cleaned[cleaned.index("{"):]
+    # pull up to the last “}”
+    if "}" in cleaned:
+        cleaned = cleaned[: cleaned.rfind("}") + 1]
+    # auto-balance braces
+    open_braces  = cleaned.count("{")
+    close_braces = cleaned.count("}")
+    if open_braces > close_braces:
+        cleaned += "}" * (open_braces - close_braces)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Still invalid JSON after cleaning: {cleaned!r}") from e
+
+
 
 def call_epitome_model(user_input: str, llm_response: str) -> dict:
     prompt = f"""
 SYSTEM: You are an EPITOME evaluator. You must output *only* valid JSON—no extra text, no markdown, no apologies, no keys beyond the three shown.
 
+IMPORTANT: For each category, your “rationale” field must be the exact substring (verbatim) from the Responder’s text that most directly justifies the score. Do NOT paraphrase or explain—just quote the snippet.
+
 Schema (exactly this order):
 {{
-  "emotional_reactions": {{ "score": <0–2>, "rationale": "<string>" }},
-  "interpretations":    {{ "score": <0–2>, "rationale": "<string>" }},
-  "explorations":       {{ "score": <0–2>, "rationale": "<string>" }}
+  "emotional_reactions": {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }},
+  "interpretations":    {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }},
+  "explorations":       {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }}
 }}
 
 USER:
@@ -44,7 +66,6 @@ Now evaluate and emit *only* the JSON object conforming to the schema above. Sto
         input={"prompt": prompt},
         stream=False,
         temperature=0.0,
-        stop=["}}"],
     )
 
     # 2) If it ever comes back as a list of strings, coalesce it
@@ -54,8 +75,5 @@ Now evaluate and emit *only* the JSON object conforming to the schema above. Sto
     # 3) Trim whitespace/newlines
     raw = raw.strip()
 
-    # 4) Parse JSON (or raise a clear error)
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Invalid JSON from model: {raw!r}") from e
+    # Use our safe parser instead of direct json.loads
+    return safe_parse_json(raw)
