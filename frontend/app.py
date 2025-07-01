@@ -4,8 +4,22 @@ import streamlit as st
 from dotenv import load_dotenv
 import pathlib, sys, uuid
 from PyPDF2 import PdfReader
+import threading
 
 from backend.services.epitome_evaluation import call_epitome_model
+
+def _async_evaluate_and_store(chat_id, pair_number, user_input, llm_response):
+    try:
+        eval_json = call_epitome_model(user_input, llm_response)
+        # use the correct kwarg name here:
+        update_epitome_eval(
+            chat_id=chat_id,
+            pair_number=pair_number,
+            epitome_eval_json=eval_json
+        )
+    except Exception as e:
+        # optionally log to console or a file
+        print(f"[EPITOME] failed for {chat_id}/{pair_number}: {e}")
 
 # 1) Set page config must come first
 st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
@@ -88,11 +102,12 @@ if user_input := st.chat_input("Type your message..."):
         reply = reply.strip()
         st.markdown(reply)
 
-    # 3) record in history & DB, then EPITOME–evaluate
+        # 3) record & fire‐and‐forget the evaluation
     st.session_state.chat_history.append({"role": "assistant", "content": reply})
+    this_pair = st.session_state.pair_number
+
     try:
-        # insert the new chat pair
-        this_pair = st.session_state.pair_number
+        # insert into DB immediately
         insert_chat_pair(
             chat_id=st.session_state.chat_id,
             pair_number=this_pair,
@@ -101,16 +116,19 @@ if user_input := st.chat_input("Type your message..."):
             prompt_id=get_active_prompt_id(),
         )
 
-        # immediately evaluate empathy and save
-        with st.spinner("Evaluating empathy…"):
-            evaluation = call_epitome_model(user_input, reply)
-        update_epitome_eval(
-            chat_id=st.session_state.chat_id,
-            pair_number=this_pair,
-            evaluation=evaluation
-        )
+        # kick off background thread
+        threading.Thread(
+            target=_async_evaluate_and_store,
+            args=(
+                st.session_state.chat_id,
+                this_pair,
+                user_input,
+                reply
+            ),
+            daemon=True
+        ).start()
 
-        # only bump the counter if everything succeeded
+        # bump counter so next message is stored separately
         st.session_state.pair_number += 1
 
     except Exception as e:
