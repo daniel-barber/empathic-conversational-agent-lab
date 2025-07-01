@@ -19,32 +19,24 @@ replicate.Client(api_token=REPLICATE_API_TOKEN)
 #     }
 
 def safe_parse_json(raw: str) -> dict:
-    """
-    Try to parse `raw` as JSON, cleaning common issues:
-     - Strips markdown fences like ```json ... ```
-     - Extracts the first {...} block
-     - If missing a trailing '}', appends it
-    """
-    # 1) strip markdown fences
+    # strip any ```json fences
     cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip(), flags=re.IGNORECASE)
-
-    # 2) extract first {...} block
-    m = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
-    if m:
-        cleaned = m.group(0)
-
-    # 3) try loading
+    # pull out the first “{……”
+    if "{" in cleaned:
+        cleaned = cleaned[cleaned.index("{"):]
+    # pull up to the last “}”
+    if "}" in cleaned:
+        cleaned = cleaned[: cleaned.rfind("}") + 1]
+    # auto-balance braces
+    open_braces  = cleaned.count("{")
+    close_braces = cleaned.count("}")
+    if open_braces > close_braces:
+        cleaned += "}" * (open_braces - close_braces)
     try:
         return json.loads(cleaned)
-    except json.JSONDecodeError:
-        # if it’s missing exactly one '}', append it and retry
-        if cleaned.count("{") == cleaned.count("}") - 1:
-            try:
-                return json.loads(cleaned + "}")
-            except json.JSONDecodeError:
-                pass
-        # if still broken, raise with context
-        raise RuntimeError(f"Invalid JSON from model after cleaning: {cleaned!r}")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Still invalid JSON after cleaning: {cleaned!r}") from e
+
 
 
 def call_epitome_model(user_input: str, llm_response: str) -> dict:
@@ -72,7 +64,6 @@ Now evaluate and emit *only* the JSON object conforming to the schema above. Sto
         input={"prompt": prompt},
         stream=False,
         temperature=0.0,
-        stop=["}}"],
     )
 
     # 2) If it ever comes back as a list of strings, coalesce it
