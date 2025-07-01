@@ -43,11 +43,13 @@ def call_epitome_model(user_input: str, llm_response: str) -> dict:
     prompt = f"""
 SYSTEM: You are an EPITOME evaluator. You must output *only* valid JSON—no extra text, no markdown, no apologies, no keys beyond the three shown.
 
+IMPORTANT: For each category, your “rationale” field must be the exact substring (verbatim) from the Responder’s text that most directly justifies the score. Do NOT paraphrase or explain—just quote the snippet.
+
 Schema (exactly this order):
 {{
-  "emotional_reactions": {{ "score": <0–2>, "rationale": "<string>" }},
-  "interpretations":    {{ "score": <0–2>, "rationale": "<string>" }},
-  "explorations":       {{ "score": <0–2>, "rationale": "<string>" }}
+  "emotional_reactions": {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }},
+  "interpretations":    {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }},
+  "explorations":       {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }}
 }}
 
 USER:
