@@ -93,16 +93,6 @@ services:
       - chatbot-network
     restart: unless-stopped
 
-  # 6) Optional auto-updater
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30 --cleanup
-    restart: unless-stopped
-
-
 networks:
   chatbot-network:
     driver: bridge
