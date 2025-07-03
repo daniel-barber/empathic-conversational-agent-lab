@@ -41,19 +41,19 @@ jobs:
         docker build -t empathic-chatbot:latest .
         echo "Docker build completed"
 
-deploy:
-  needs: docker-build
-  runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/main'
-  steps:
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        key: ${{ secrets.SSH_KEY }}
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        script: |
-            cd ~/chatbot-app
-            git pull origin main
-            docker compose build --no-cache
-            docker compose up -d
+  deploy:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          script: |
+              cd ~/chatbot-app
+              git pull origin main
+              docker compose build --no-cache
+              docker compose up -d
