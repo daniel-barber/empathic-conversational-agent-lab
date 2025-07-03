@@ -6,7 +6,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+USER app
 WORKDIR /empathic-conversational-agent-lab
+
+# Streamlit-Verzeichnis erstellen und Berechtigungen setzen
+RUN mkdir -p /home/app/.streamlit && \
+    chown -R app:app /home/app/.streamlit
 
 # allow imports from project root
 ENV PYTHONPATH="/empathic-conversational-agent-lab:${PYTHONPATH}"
