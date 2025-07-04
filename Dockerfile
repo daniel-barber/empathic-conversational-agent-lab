@@ -44,6 +44,10 @@ COPY --from=builder /install /usr/local
 # Copy app code
 COPY --chown=app:app . .
 
+# Make sure the data folder is owned by “app” so preload_documents.py can write to it
+RUN mkdir -p /empathic-conversational-agent-lab/data \
+ && chown -R app:app /empathic-conversational-agent-lab/data
+
 USER app
 ENV PYTHONPATH="/empathic-conversational-agent-lab:${PYTHONPATH}"
 EXPOSE 8501
