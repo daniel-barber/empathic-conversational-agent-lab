@@ -49,11 +49,12 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
         with:
-          key: ${{ secrets.SSH_KEY }}
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
+          host: ${{ secrets.HOST }}               # e.g. 147.86.8.62
+          username: ${{ secrets.USERNAME }}       # daniel
+          key: ${{ secrets.SSH_PRIVATE_KEY }}     # full BEGIN/END private key
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
           script: |
-              cd ~/chatbot-app
-              git pull origin main
-              docker compose build --no-cache
-              docker compose up -d
+           cd /opt/streamlit-stack
+           git pull origin main
+           docker compose build --no-cache
+           docker compose up -d
