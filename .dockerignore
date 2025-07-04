@@ -1,0 +1,11 @@
+# don’t copy docs, data, streamlit settings or VCS
+docs/
+data/
+.streamlit/
+.git
+.gitignore
+
+# don’t copy local Python caches or venvs
+__pycache__/
+*.pyc
+.venv/
