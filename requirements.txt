@@ -1,9 +1,9 @@
 # CPU-only torch is installed in Dockerfile
 --index-url https://download.pytorch.org/whl/cpu
-torch==2.7.1+cpu
+torch==2.7.1
 
 # Web frameworks
-fastapi~=0.115.12
+fastapi>=0.111.0
 uvicorn>=0.22
 streamlit>=1.30
 python-dotenv>=1.0.0
