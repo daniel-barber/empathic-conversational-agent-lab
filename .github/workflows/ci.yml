@@ -35,6 +35,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Prune Docker builder cache
+      run: |
+        docker builder prune --all --force
+        docker system prune --all --volumes --force || true
+
     - name: Build Docker image
       run: |
         echo "Building Docker image..."
