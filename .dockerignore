@@ -1,11 +1,22 @@
-# don’t copy docs, data, streamlit settings or VCS
-docs/
-data/
-.streamlit/
-.git
+# ignore Python caches
+__pycache__/
+*.py[cod]
+
+# ignore git history
+.git/
 .gitignore
 
-# don’t copy local Python caches or venvs
-__pycache__/
-*.pyc
-.venv/
+# ignore local data, notebooks, logs, etc
+data/
+*.ipynb
+*.pdf
+*.csv
+*.log
+
+# ignore editor cruft
+.vscode/
+.idea/
+.DS_Store
+
+# node modules, if any
+node_modules/
