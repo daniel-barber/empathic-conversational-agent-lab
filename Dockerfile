@@ -5,7 +5,7 @@
 #####################################
 FROM python:3.10-slim AS builder
 
-# 1) Install build tools + CPU-only PyTorch index support
+# 1) Install build tools
 RUN apt-get update \
  && apt-get install -y --no-install-recommends build-essential curl \
  && rm -rf /var/lib/apt/lists/*
@@ -13,13 +13,12 @@ RUN apt-get update \
 WORKDIR /app
 COPY requirements.txt .
 
-# 2) Upgrade pip, build wheels (including CPU-only torch)
-#    then delete any GPU/CUDA wheels, and install only CPU wheels into /install
+# 2) Upgrade pip, install CPU-only torch into /install
+# 3) Wheel remaining deps (--no-deps prevents re-pulling torch & its extras)
+# 4) Install them into /install from /wheels
 RUN pip install --upgrade pip \
- && pip wheel --no-cache-dir --wheel-dir /wheels \
-      -r requirements.txt \
-      -f https://download.pytorch.org/whl/cpu/torch_stable.html \
- && find /wheels -type f \( -iname "*cu*" -o -iname "nvidia_*" \) -delete \
+ && pip install --no-cache-dir --prefix=/install torch>=2.7.1 \
+ && pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt \
  && pip install --no-cache-dir --prefix=/install \
       --no-index --find-links /wheels \
       -r requirements.txt \
