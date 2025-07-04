@@ -46,6 +46,11 @@ jobs:
     runs-on: self-hosted
     if: github.ref == 'refs/heads/main'
     steps:
+      - name: Prune Docker builder cache
+        run: |
+         docker builder prune --all --force
+         docker system prune --all --volumes --force || true
+
       - name: Check out code
         uses: actions/checkout@v3
 
