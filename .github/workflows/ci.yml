@@ -43,7 +43,7 @@ jobs:
 
   deploy:
     needs: docker-build
-    runs-on: [self-hosted, linux, fhnw-vm]
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Check out code
