@@ -46,7 +46,7 @@ COPY --chown=app:app . .
 
 # Make sure the data folder is owned by “app” so preload_documents.py can write to it
 RUN mkdir -p /empathic-conversational-agent-lab/data \
- && chown -R app:app /empathic-conversational-agent-lab/data
+ && chown -R app:app /empathic-conversational-agent-lab
 
 USER app
 ENV PYTHONPATH="/empathic-conversational-agent-lab:${PYTHONPATH}"
