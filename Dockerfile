@@ -18,7 +18,7 @@ COPY requirements.txt .
 
 # Build wheels into /wheels
 RUN pip install --upgrade pip \
- && pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+ && pip install --prefix=/install -r requirements.txt
 
 #####################################
 # 2) Runtime stage — clean & lean
@@ -39,11 +39,8 @@ RUN useradd -m -u 1000 app \
 
 WORKDIR /empathic-conversational-agent-lab
 
-# Copy over the built wheels & install from them
-COPY --from=builder /wheels /wheels
-COPY requirements.txt .
-RUN pip install --no-index --find-links /wheels -r requirements.txt \
- && rm -rf /wheels
+# Copy the already-installed packages
+COPY --from=builder /install /usr/local
 
 # Copy your application code as the app user
 COPY --chown=app:app . .
