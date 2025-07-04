@@ -17,7 +17,9 @@ COPY requirements.txt .
 # 3) Wheel remaining deps (--no-deps prevents re-pulling torch & its extras)
 # 4) Install them into /install from /wheels
 RUN pip install --upgrade pip \
- && pip install --no-cache-dir --prefix=/install torch>=2.7.1 \
+ && pip install --no-cache-dir --prefix=/install \
+      torch==2.3.0+cpu \
+      -f https://download.pytorch.org/whl/torch_stable.html \
  && pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt \
  && pip install --no-cache-dir --prefix=/install \
       --no-index --find-links /wheels \
