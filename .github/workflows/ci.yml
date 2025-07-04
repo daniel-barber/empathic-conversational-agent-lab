@@ -54,5 +54,5 @@ jobs:
          cd /opt/streamlit-stack
          git fetch origin main
          git reset --hard origin/main
-         docker compose build --no-cache
+         docker compose build --no-cache --quiet
          docker compose up -d
