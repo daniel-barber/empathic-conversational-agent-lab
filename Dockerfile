@@ -17,7 +17,9 @@ RUN pip install --upgrade pip \
  && pip install --no-cache-dir --prefix=/install \
       torch==2.7.1 \
       --index-url https://download.pytorch.org/whl/cpu \
- && pip install --no-cache-dir --prefix=/install -r requirements.txt
+ && pip install --no-cache-dir --prefix=/install \
+      --extra-index-url https://download.pytorch.org/whl/cpu \
+      -r requirements.txt
 
 ########################################
 # Final runtime image — clean and lean
