@@ -43,26 +43,15 @@ jobs:
 
   deploy:
     needs: docker-build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, fhnw-vm]
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Add SSH known hosts
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Deploy on VM
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            cd /opt/streamlit-stack
-            git pull origin main
-            docker compose build --no-cache
-            docker compose up -d
-
+          cd /opt/streamlit-stack
+          git pull origin main
+          docker compose build --no-cache
+          docker compose up -d
