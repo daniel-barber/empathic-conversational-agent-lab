@@ -16,9 +16,15 @@ WORKDIR /app
 # Copy only requirements so Docker can cache this layer
 COPY requirements.txt .
 
-# Install all dependencies directly into /install
+# 1) Build *all* wheels into /wheels
+# 2) Delete any GPU/CUDA wheels by filename
+# 3) Install only the remaining (CPU‐only) wheels into /install
 RUN pip install --upgrade pip \
- && pip install --no-cache-dir --prefix=/install -r requirements.txt
+ && pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt \
+ && find /wheels -type f \( -iname "*cu*" -o -iname "nvidia_*" \) -delete \
+ && pip install --no-cache-dir --prefix=/install \
+      --no-index --find-links /wheels -r requirements.txt \
+ && rm -rf /wheels
 
 #####################################
 # 2) Runtime stage — clean & lean
