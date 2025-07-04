@@ -16,9 +16,9 @@ WORKDIR /app
 # Copy only requirements so Docker can cache this layer
 COPY requirements.txt .
 
-# Build wheels into /wheels
+# Install all dependencies directly into /install
 RUN pip install --upgrade pip \
- && pip install --prefix=/install -r requirements.txt
+ && pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 #####################################
 # 2) Runtime stage — clean & lean
@@ -31,18 +31,17 @@ RUN apt-get update \
       curl \
  && rm -rf /var/lib/apt/lists/*
 
-# Create your app user & dirs
+# Create app user & dirs
 RUN useradd -m -u 1000 app \
- && mkdir -p /home/app/.streamlit \
- && mkdir -p /empathic-conversational-agent-lab \
+ && mkdir -p /home/app/.streamlit /empathic-conversational-agent-lab \
  && chown -R app:app /home/app/.streamlit /empathic-conversational-agent-lab
 
 WORKDIR /empathic-conversational-agent-lab
 
-# Copy the already-installed packages
+# Pull in the installed Python packages
 COPY --from=builder /install /usr/local
 
-# Copy your application code as the app user
+# Copy app code
 COPY --chown=app:app . .
 
 USER app
