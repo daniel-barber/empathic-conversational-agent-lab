@@ -36,6 +36,8 @@ Thumbs.db
 *.db
 *.bak
 *.tmp
+data/doc_manifest.json
+
 
 # Compiled files
 *.egg-info/
