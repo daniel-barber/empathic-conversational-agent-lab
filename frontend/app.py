@@ -2,11 +2,20 @@
 
 import streamlit as st
 from dotenv import load_dotenv
-import pathlib, sys, uuid
+import pathlib, sys, uuid, json
 from PyPDF2 import PdfReader
 import threading
-
 from backend.services.epitome_evaluation import call_epitome_model
+
+DATA_DIR = pathlib.Path("data")
+MANIFEST_PATH = DATA_DIR / "doc_manifest.json"
+
+# ensure an empty manifest file exists on every cold start
+if not MANIFEST_PATH.exists():
+    DATA_DIR.mkdir(exist_ok=True)
+    MANIFEST_PATH.write_text("[]", encoding="utf-8")
+
+
 
 def _async_evaluate_and_store(chat_id, pair_number, user_input, llm_response):
     try:

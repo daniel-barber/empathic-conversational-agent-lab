@@ -26,6 +26,9 @@ def save_manifest(filenames):
 retriever = DocumentRetriever()
 existing = load_manifest()
 
+if not MANIFEST_PATH.exists():
+    save_manifest(existing)
+
 st.title("📚 RAG – Indexed Documents")
 
 # — REINDEX BUTTON —
