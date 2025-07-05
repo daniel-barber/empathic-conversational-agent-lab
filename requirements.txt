@@ -37,3 +37,4 @@ urllib3
 
 
 pydantic~=2.11.3
+networkx<=3.0.0 # to avoid SyntaxError in dataclass
