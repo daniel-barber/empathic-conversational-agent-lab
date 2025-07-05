@@ -59,7 +59,7 @@ jobs:
           - name: "Production VM"
             label: production
             workdir: /opt/streamlit-stack
-    runs-on: [ self-hosted, ${ { matrix.label } } ]
+    runs-on: [ self-hosted, ${{ matrix.label }} ]
 
     steps:
       - name: Checkout code
