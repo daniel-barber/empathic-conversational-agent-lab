@@ -47,22 +47,33 @@ jobs:
         echo "Docker build completed"
 
   deploy:
+    name: 🚀 Deploy to all targets
     needs: docker-build
-    runs-on: self-hosted
     if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Prune Docker builder cache
-        run: |
-         docker builder prune --all --force
-         docker system prune --all --volumes --force || true
+    strategy:
+      matrix:
+        include:
+          - name: "Raspberry Pi"
+            label: raspberry
+            workdir: /home/pi/projects/empathic-conversational-agent-lab
+          - name: "Production VM"
+            label: production
+            workdir: /opt/streamlit-stack
+    runs-on: [ self-hosted, ${ { matrix.label } } ]
 
-      - name: Check out code
+    steps:
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy on VM
+      - name: Prune Docker cache
         run: |
-         cd /opt/streamlit-stack
-         git fetch origin main
-         git reset --hard origin/main
-         docker compose build --no-cache --quiet
-         docker compose up -d
+          docker builder prune --all --force
+          docker system prune --all --volumes --force || true
+
+      - name: Deploy to ${{ matrix.name }}
+        working-directory: ${{ matrix.workdir }}
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+          docker compose build --no-cache --quiet
+          docker compose up -d
