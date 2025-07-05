@@ -52,7 +52,13 @@ USER app
 ENV PYTHONPATH="/empathic-conversational-agent-lab:${PYTHONPATH}"
 EXPOSE 8501
 
+# copy in our background-entrypoint and make it executable
+COPY --chown=app:app entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# health-probe remains the same
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
-ENTRYPOINT ["bash", "-lc", "python scripts/preload_documents.py && streamlit run frontend/app.py --server.address 0.0.0.0 --server.port 8501"]
+# hand off to our script, which backgrounds preload and immediately starts Streamlit
+ENTRYPOINT ["/entrypoint.sh"]
