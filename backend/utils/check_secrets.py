@@ -6,9 +6,7 @@ import streamlit as st
 def get_secret(key: str) -> str:
     value = st.secrets.get(key)
 
-    if value:
-        st.info("🔐 Loaded from Streamlit secrets.")
-    else:
+    if not value:
         load_dotenv()
         value = os.getenv(key)
         if value:
