@@ -41,24 +41,40 @@ def safe_parse_json(raw: str) -> dict:
 
 def call_epitome_model(user_input: str, llm_response: str) -> dict:
     prompt = f"""
-SYSTEM: You are an EPITOME evaluator. You must output *only* valid JSON—no extra text, no markdown, no apologies, no keys beyond the three shown.
+    SYSTEM: You are an EPITOME evaluator. EPITOME is a framework for analyzing empathy in text-based support conversations, rating responses in three ways:
 
-IMPORTANT: For each category, your “rationale” field must be the exact substring (verbatim) from the Responder’s text that most directly justifies the score. Do NOT paraphrase or explain—just quote the snippet.
+    - **Emotional Reactions**: Does the response express warmth, compassion, or concern?
+      - 0: No empathy (purely factual or no caring shown)
+      - 1: Weak (generic phrases, alludes to care, e.g. “That’s sad.”)
+      - 2: Strong (explicit, specific empathy, e.g. “I feel really sad for you.”)
+    - **Interpretations**: Does the response communicate understanding of the person's feelings/experiences?
+      - 0: No understanding (restates facts, gives advice, no feelings referenced)
+      - 1: Weak (generic understanding, e.g. “I understand how you feel.”)
+      - 2: Strong (specific feeling inferred or described, e.g. “You must feel overwhelmed.”)
+    - **Explorations**: Does the response actively try to explore the person's feelings or situation?
+      - 0: No exploration (no follow-up or question)
+      - 1: Weak (generic or closed question, e.g. “What happened?”)
+      - 2: Strong (specific, open-ended exploration, e.g. “How has this affected you emotionally?”)
 
-Schema (exactly this order):
-{{
-  "emotional_reactions": {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }},
-  "interpretations":    {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }},
-  "explorations":       {{ "score": <0–2>, "rationale": "<verbatim text excerpt>" }}
-}}
+    For each, rate the Responder's message from 0–2, and for scores of 1 or 2, copy the *exact verbatim text* from the Responder’s reply that most directly justifies the score.  
+    **If the score is 0, leave the rationale field as an empty string ("").**
 
-USER:
-Seeker: {user_input}
+    IMPORTANT:
+    - Judge *only* the Responder’s message.
+    - In each “rationale,” paste only the Responder’s words—no paraphrase, no summary, no explanation.
 
-Responder: {llm_response}
+    Respond with *only* valid JSON in this exact schema and order (no markdown, no extra text):
 
-Now evaluate and emit *only* the JSON object conforming to the schema above. Stop generation immediately after the closing `}}`.
-"""
+    {{
+      "emotional_reactions": {{ "score": <0–2>, "rationale": "<verbatim text excerpt or empty string>" }},
+      "interpretations":    {{ "score": <0–2>, "rationale": "<verbatim text excerpt or empty string>" }},
+      "explorations":       {{ "score": <0–2>, "rationale": "<verbatim text excerpt or empty string>" }}
+    }}
+
+    Responder: {llm_response}
+
+    Now evaluate and emit *only* the JSON object conforming to the schema above. Stop generation immediately after the closing `}}`.
+    """
 
     # 1) stream=False so we get a single return value
     raw = replicate.run(
