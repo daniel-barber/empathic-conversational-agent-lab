@@ -5,7 +5,7 @@ from backend.database.db import (
 
 st.set_page_config("🛠️ Prompt Manager")
 
-# 1) on first import, if we don't yet know is_admin, show the password box
+# Admin Page Logic
 if "is_admin" not in st.session_state:
     pwd = st.sidebar.text_input(
         "🔐 Admin password",
@@ -14,11 +14,9 @@ if "is_admin" not in st.session_state:
     )
     if pwd == st.secrets["ADMIN_PASS"]:
         st.session_state.is_admin = True
-        # clear the input so the box goes away
         del st.session_state["admin_pwd_input"]
         st.rerun()
 
-# 2) if not authenticated, stop here (so page body never runs)
 if not st.session_state.get("is_admin", False):
     st.sidebar.error("Enter admin password to view this page.")
     st.stop()
