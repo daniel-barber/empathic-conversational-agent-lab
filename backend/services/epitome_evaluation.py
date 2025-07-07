@@ -78,7 +78,7 @@ def call_epitome_model(user_input: str, llm_response: str) -> dict:
 
     # 1) stream=False so we get a single return value
     raw = replicate.run(
-        "meta/meta-llama-3-8b-instruct",
+        "meta/meta-llama-3-70b-instruct",
         input={"prompt": prompt},
         stream=False,
         temperature=0.0,
