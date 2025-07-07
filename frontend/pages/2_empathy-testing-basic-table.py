@@ -9,6 +9,24 @@ from backend.database.db import (
 )
 from backend.services.epitome_evaluation import call_epitome_model
 
+st.set_page_config("🛠️ Empathy Testing Basic Table")
+
+# Admin Page Logic
+if "is_admin" not in st.session_state:
+    pwd = st.sidebar.text_input(
+        "🔐 Admin password",
+        type="password",
+        key="admin_pwd_input"
+    )
+    if pwd == st.secrets["ADMIN_PASS"]:
+        st.session_state.is_admin = True
+        del st.session_state["admin_pwd_input"]
+        st.rerun()
+
+if not st.session_state.get("is_admin", False):
+    st.sidebar.error("Enter admin password to view this page.")
+    st.stop()
+
 
 # Check Database is there
 print(f"DB_PATH being used: {DB_PATH}")
@@ -25,7 +43,7 @@ def load_chats_from_db():
 df = load_chats_from_db()
 
 # Display title
-st.title("Empathy Testing")
+st.title("Empathy Testing Basic Table")
 
 # Empathy testing button
 if st.button("Evaluate Missing EPITOME"):

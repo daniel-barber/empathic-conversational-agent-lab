@@ -3,8 +3,26 @@ import pathlib, json
 from pymilvus import utility, connections
 from backend.llm.document_retriever_RAG import DocumentRetriever
 
+st.set_page_config("🛠️ RAG Documents")
+
+# Admin Page Logic
+if "is_admin" not in st.session_state:
+    pwd = st.sidebar.text_input(
+        "🔐 Admin password",
+        type="password",
+        key="admin_pwd_input"
+    )
+    if pwd == st.secrets["ADMIN_PASS"]:
+        st.session_state.is_admin = True
+        del st.session_state["admin_pwd_input"]
+        st.rerun()
+
+if not st.session_state.get("is_admin", False):
+    st.sidebar.error("Enter admin password to view this page.")
+    st.stop()
+
 # — config
-st.set_page_config(page_title="RAG Dokumente", page_icon="📚")
+st.set_page_config(page_title="RAG Documents", page_icon="📚")
 DATA_DIR = pathlib.Path("data")
 DOCS_DIR = pathlib.Path("docs")
 MANIFEST_PATH = DATA_DIR / "doc_manifest.json"
