@@ -1,18 +1,22 @@
 from dotenv import load_dotenv
 import os
-import streamlit as st
 
 
 def get_secret(key: str) -> str:
-    value = st.secrets.get(key)
+    # 1. First, try environment or .env
+    load_dotenv()
+    value = os.getenv(key)
+    if value:
+        return value
 
-    if not value:
-        load_dotenv()
-        value = os.getenv(key)
+    # 2. If not found, try streamlit.secrets (for Streamlit apps)
+    try:
+        import streamlit as st
+        value = st.secrets.get(key)
         if value:
-            st.info("🧪 Loaded from .env file.")
-        else:
-            st.error(f"❌ Missing secret: {key}")
-            st.stop()
+            return value
+    except Exception:
+        pass  # Streamlit is not installed or not running
 
-    return value
+    # 3. If neither found, fail loudly
+    raise RuntimeError(f"❌ Missing secret: {key}")
