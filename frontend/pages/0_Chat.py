@@ -1,4 +1,4 @@
-# app.py – Empathic Chatbot with Streamlit
+# 0_Chat.py – Empathic Chatbot with Streamlit
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -31,7 +31,12 @@ def _async_evaluate_and_store(chat_id, pair_number, user_input, llm_response):
         print(f"[EPITOME] failed for {chat_id}/{pair_number}: {e}")
 
 # 1) Set page config must come first
-st.set_page_config(page_title="Empathic Chatbot", page_icon="🦙", layout="wide")
+st.set_page_config(page_title="Empathic Chatbot",
+                   page_icon="🦙",
+                   layout="wide",
+                   initial_sidebar_state="collapsed"
+                   )
+
 
 # 2) Setup environment & paths
 load_dotenv()
