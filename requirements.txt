@@ -23,6 +23,8 @@ langdetect>=1.0.9
 # LLM Evaluation / EPITOME / Transformers
 transformers>=4.37
 scikit-learn>=1.3
+matplotlib
+
 
 # Database and data handling
 sqlalchemy>=2.0
