@@ -9,4 +9,4 @@ python scripts/preload_documents.py >> "$LOGFILE" 2>&1 &
 
 # 2) Immediately exec Streamlit
 echo "Launching Streamlit…" | tee -a "$LOGFILE"
-exec streamlit run frontend/app.py --server.address 0.0.0.0 --server.port 8501
+exec streamlit run frontend/0_Intro.py --server.address 0.0.0.0 --server.port 8501
