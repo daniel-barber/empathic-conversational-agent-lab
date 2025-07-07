@@ -43,8 +43,8 @@ The chatbot will do its best to respond **empathetically and informatively**.
 
 ### 📋 Your role as a tester
 
-After each chatbot reply, you’ll be asked to rate how **empathic** the response felt to you on a **1–5 smiley scale** —  
-specifically whether it showed **warmth, understanding, and care**.
+After each chatbot reply, you’ll see five faces, from 😞 to 😄, and be asked to rate how **empathic** the response felt to you  
+considering whether the answer showed **warmth, understanding, and care**.
 
 Your feedback will help us evaluate and improve the **emotional intelligence** of future AI systems in healthcare settings.
 
