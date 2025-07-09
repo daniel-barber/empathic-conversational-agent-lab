@@ -61,7 +61,11 @@ df["epitome_total_score"] = (
 )
 
 # User feedback score
-df["feedback_score"] = df["user_feedback"].apply(parse_feedback)
+df["feedback_score"] = (
+  pd.to_numeric(df["user_feedback"], errors="coerce")
+    .astype("Int64")  # nullable integer dtype
+)
+
 
 
 # ——— Prompt-Level Summary ———
@@ -81,7 +85,12 @@ agg = (
 
 # 1) Compute overall EPITOME avg and delta
 agg["Avg_EP"]          = agg[["Avg_ER","Avg_IP","Avg_EX"]].mean(axis=1)
-agg["Delta_FB_minus_EP"] = agg["Avg_Feedback"] - agg["Avg_EP"]
+
+# normalize each to 0–100%
+agg["EP_pct"] = agg["Avg_EP"]    / 2 * 100
+agg["FB_pct"] = agg["Avg_Feedback"] / 5 * 100
+agg["Delta_pct"] = agg["FB_pct"] - agg["EP_pct"]
+
 
 # 2) Reorder columns
 cols = [
@@ -90,7 +99,7 @@ cols = [
     "Avg_ER", "Avg_IP", "Avg_EX",
     "Avg_EP",
     "Avg_Feedback",
-    "Delta_FB_minus_EP"
+    "EP_pct", "FB_pct", "Delta_pct"
 ]
 agg = agg[cols]
 
@@ -99,12 +108,14 @@ st.header("Prompt-Level Empathy Summary")
 st.dataframe(
     agg.style
        .format({
-         "Avg_ER":"{:.2f}",
-         "Avg_IP":"{:.2f}",
-         "Avg_EX":"{:.2f}",
-         "Avg_EP":"{:.2f}",
-         "Avg_Feedback":"{:.1f}/5",
-         "Delta_FB_minus_EP":"{:+.2f}"
+        "Avg_ER":      "{:.2f}",
+        "Avg_IP":      "{:.2f}",
+        "Avg_EX":      "{:.2f}",
+        "Avg_EP":      "{:.2f}",
+        "Avg_Feedback":"{:.1f}/5",
+        "EP_pct":      "{:.1f}%",
+        "FB_pct":      "{:.1f}%",
+        "Delta_pct":   "{:+.1f}%"
        })
 )
 
