@@ -3,6 +3,7 @@ import json
 import re
 import pandas as pd
 import sqlite3
+import matplotlib.pyplot as plt
 
 from backend.database.db import DB_PATH
 
@@ -68,34 +69,48 @@ agg = (
     df
       .groupby("version_name")
       .agg(
-         **{
-           "Prompt Name": ("version_name", "first"),
-           "Chats":       ("chat_id",      "count"),
-           "Avg ER":      ("emotional_reactions", "mean"),
-           "Avg IP":      ("interpretations",     "mean"),
-           "Avg EX":      ("explorations",        "mean"),
-           "Avg Feedback":("feedback_score",      "mean"),
-         }
+         Prompt_Name   = ("version_name",    "first"),
+         Chats         = ("chat_id",         "count"),
+         Avg_ER        = ("emotional_reactions", "mean"),
+         Avg_IP        = ("interpretations",     "mean"),
+         Avg_EX        = ("explorations",        "mean"),
+         Avg_Feedback  = ("feedback_score",      "mean"),
       )
-      .sort_values("Chats", ascending=False)
       .reset_index(drop=True)
 )
 
+# 1) Compute overall EPITOME avg and delta
+agg["Avg_EP"]          = agg[["Avg_ER","Avg_IP","Avg_EX"]].mean(axis=1)
+agg["Delta_FB_minus_EP"] = agg["Avg_Feedback"] - agg["Avg_EP"]
+
+# 2) Reorder columns
+cols = [
+    "Prompt_Name",
+    "Chats",
+    "Avg_ER", "Avg_IP", "Avg_EX",
+    "Avg_EP",
+    "Avg_Feedback",
+    "Delta_FB_minus_EP"
+]
+agg = agg[cols]
+
+# 3) Render table with styling
 st.header("Prompt-Level Empathy Summary")
 st.dataframe(
-    agg.style.format({
-      "Avg ER":      "{:.2f}",
-      "Avg IP":      "{:.2f}",
-      "Avg EX":      "{:.2f}",
-      "Avg Feedback":"{:.1f}/5",
-    })
+    agg.style
+       .format({
+         "Avg_ER":"{:.2f}",
+         "Avg_IP":"{:.2f}",
+         "Avg_EX":"{:.2f}",
+         "Avg_EP":"{:.2f}",
+         "Avg_Feedback":"{:.1f}/5",
+         "Delta_FB_minus_EP":"{:+.2f}"
+       })
 )
 
-
-# ——— Full Prompt Text Reference ———
+# 5) Full Prompt Text Reference
 st.header("Full Prompt Texts")
-for prompt_name in agg["Prompt Name"]:
+for prompt_name in agg["Prompt_Name"]:
     with st.expander(prompt_name):
         text = df.loc[df.version_name == prompt_name, "system_prompt"].unique()
         st.code(text[0] if len(text) else "—")
-
