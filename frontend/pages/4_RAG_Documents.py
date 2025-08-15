@@ -1,9 +1,10 @@
 import streamlit as st
-import pathlib, json
+import pathlib
+import json
 from pymilvus import utility, connections
 from backend.llm.document_retriever_RAG import DocumentRetriever
 
-st.set_page_config("🛠️ RAG Documents")
+st.set_page_config(page_title="RAG Documents", page_icon="📚")
 
 # Admin Page Logic
 if "is_admin" not in st.session_state:
@@ -22,7 +23,6 @@ if not st.session_state.get("is_admin", False):
     st.stop()
 
 # — config
-st.set_page_config(page_title="RAG Documents", page_icon="📚")
 DATA_DIR = pathlib.Path("data")
 DOCS_DIR = pathlib.Path("docs")
 MANIFEST_PATH = DATA_DIR / "doc_manifest.json"
@@ -146,7 +146,8 @@ else:
         if col2.button("🗑️ Delete", key=f"del_{fname}"):
             # 1) delete file on disk
             fp = DOCS_DIR / fname
-            if fp.exists(): fp.unlink()
+            if fp.exists():
+                fp.unlink()
 
             # 2) delete vectors from Milvus
             expr = f"source == '{fname}'"

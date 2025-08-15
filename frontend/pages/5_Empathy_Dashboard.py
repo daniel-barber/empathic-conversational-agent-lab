@@ -3,7 +3,6 @@ import json
 import re
 import pandas as pd
 import sqlite3
-import matplotlib.pyplot as plt
 
 from backend.database.db import DB_PATH
 

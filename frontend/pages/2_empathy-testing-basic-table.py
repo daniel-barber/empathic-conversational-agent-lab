@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from pathlib import Path
+
 from backend.database.db import (
-    get_connection,
     update_epitome_eval,
-    DB_PATH
+    DB_PATH,
 )
 from backend.services.epitome_evaluation import call_epitome_model
 
@@ -29,8 +28,6 @@ if not st.session_state.get("is_admin", False):
 
 
 # Check Database is there
-print(f"DB_PATH being used: {DB_PATH}")
-print(f"Exists? {DB_PATH.exists()}")
 
 def load_chats_from_db():
     conn = sqlite3.connect(DB_PATH)

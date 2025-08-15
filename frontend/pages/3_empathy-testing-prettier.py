@@ -4,7 +4,6 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from backend.database.db import (
-    get_connection,
     update_epitome_eval,
     DB_PATH
 )
@@ -30,8 +29,6 @@ if not st.session_state.get("is_admin", False):
 
 
 # Check Database is there
-print(f"DB_PATH being used: {DB_PATH}")
-print(f"Exists? {DB_PATH.exists()}")
 
 def load_chats_from_db():
     conn = sqlite3.connect(DB_PATH)
@@ -118,5 +115,4 @@ for chat_id, group in grouped:
             if row["user_feedback"]:
                 st.markdown("**📝 User Feedback:**")
                 st.info(f"{row['user_feedback']}")
-
             st.markdown("---")
