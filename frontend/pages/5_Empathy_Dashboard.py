@@ -9,6 +9,22 @@ from backend.database.db import DB_PATH
 
 st.set_page_config(page_title="Prompt-Level Empathy Dashboard")
 
+# Admin Page Logic
+if "is_admin" not in st.session_state:
+    pwd = st.sidebar.text_input(
+        "🔐 Admin password",
+        type="password",
+        key="admin_pwd_input"
+    )
+    if pwd == st.secrets["ADMIN_PASS"]:
+        st.session_state.is_admin = True
+        del st.session_state["admin_pwd_input"]
+        st.rerun()
+
+if not st.session_state.get("is_admin", False):
+    st.sidebar.error("Enter admin password to view this page.")
+    st.stop()
+
 
 def load_chats_from_db():
     conn = sqlite3.connect(DB_PATH)
