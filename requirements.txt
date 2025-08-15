@@ -1,6 +1,4 @@
 # Web frameworks
-fastapi~=0.115.12
-uvicorn>=0.22
 streamlit>=1.30
 python-dotenv>=1.0.0
 requests>=2.31
@@ -39,5 +37,4 @@ urllib3
 
 
 
-pydantic~=2.11.3
 networkx<=3.0.0 # to avoid SyntaxError in dataclass
