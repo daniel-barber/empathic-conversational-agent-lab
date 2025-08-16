@@ -1,19 +1,14 @@
 # 0_Chat.py – Empathic Chatbot with Streamlit
 
+import pathlib
+import sys
+import uuid
+import threading
+
 import streamlit as st
 from dotenv import load_dotenv
-import pathlib, sys, uuid, json
-from PyPDF2 import PdfReader
-import threading
+
 from backend.services.epitome_evaluation import call_epitome_model
-
-DATA_DIR = pathlib.Path("data")
-MANIFEST_PATH = DATA_DIR / "doc_manifest.json"
-
-# ensure an empty manifest file exists on every cold start
-if not MANIFEST_PATH.exists():
-    DATA_DIR.mkdir(exist_ok=True)
-    MANIFEST_PATH.write_text("[]", encoding="utf-8")
 
 
 
@@ -44,16 +39,18 @@ PROJECT_ROOT = pathlib.Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # 3) Additional imports
-from backend.llm.replicate_client_chatbot import ReplicateClientChatbot
-from backend.utils.check_secrets import get_secret
-from backend.database.db import create_tables, insert_chat_pair, get_recent_pairs, update_user_feedback, \
-    get_feedback_statistics, get_active_prompt_id, update_epitome_eval
-from backend.llm.document_retriever_RAG import DocumentRetriever
+from backend.llm.replicate_client_chatbot import ReplicateClientChatbot  # noqa: E402
+from backend.utils.check_secrets import get_secret  # noqa: E402
+from backend.database.db import (  # noqa: E402
+    create_tables,
+    insert_chat_pair,
+    update_user_feedback,
+    get_feedback_statistics,
+    get_active_prompt_id,
+    update_epitome_eval,
+)
 
-# 5) Initialize retriever
-retriever = DocumentRetriever()
-
-# 7) Prepare database
+# 5) Prepare database
 create_tables()
 
 # 8) Streamlit UI
@@ -66,9 +63,13 @@ if "chat_history" not in st.session_state:
     st.session_state.pair_number = 1
     st.session_state.feedback_given = set()  # Set for already rated messages
 
-# Initialize chatbot
-token = get_secret("REPLICATE_API_TOKEN")
-chatbot = ReplicateClientChatbot(api_token=token, retriever=retriever)
+# Initialize chatbot lazily and cache across reruns
+@st.cache_resource
+def get_chatbot() -> ReplicateClientChatbot:
+    token = get_secret("REPLICATE_API_TOKEN")
+    return ReplicateClientChatbot(api_token=token)
+
+chatbot = get_chatbot()
 
 # Display chat history
 for i, turn in enumerate(st.session_state.chat_history):
@@ -98,7 +99,7 @@ for i, turn in enumerate(st.session_state.chat_history):
                     user_feedback=stars,
                 )
                 st.session_state.feedback_given.add(i)
-                st.toast(f"Thanks for your feedback!")
+                st.toast("Thanks for your feedback!")
 
 # New input
 if user_input := st.chat_input("Type your message..."):
