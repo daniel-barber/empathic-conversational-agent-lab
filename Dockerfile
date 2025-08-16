@@ -17,24 +17,21 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 
 # ---- ARM-safe pins (Pi) & x86-only extras -----------------------------
-# On Raspberry Pi (arm64), newer wheels of pandas can SIGILL.
-# We install conservative, ARM-friendly versions here.
-# On amd64, we keep your torch install and (optionally) faiss.
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      echo ">>> ARM64 build: installing torch and ARM-safe numpy/pandas pins"; \
-      pip install --no-cache-dir --prefix=/install \
-        torch==2.2.0 \
-        --index-url https://download.pytorch.org/whl/arm64; \
-      pip install --no-cache-dir --prefix=/install \
-        numpy==1.24.4 pandas==2.0.3; \
+      echo ">>> ARM64 build: compiling torch and scikit-learn from source, plus safe numpy/pandas"; \
+      pip install --no-cache-dir --prefix=/install numpy==1.24.4 pandas==2.0.3; \
+      # build torch from source (takes a while, but avoids illegal instructions)
+      pip install --no-binary torch --no-cache-dir --prefix=/install torch==2.2.0; \
+      # same for scikit-learn (wheels often contain AVX)
+      pip install --no-binary scikit-learn --no-cache-dir --prefix=/install scikit-learn; \
     else \
-      echo ">>> amd64 build: installing torch CPU wheel"; \
+      echo ">>> amd64 build: installing torch CPU wheel and faiss"; \
       pip install --no-cache-dir --prefix=/install \
         torch==2.2.0 \
         --index-url https://download.pytorch.org/whl/cpu; \
-      # (optional) faiss on x86 only; skip on ARM
       pip install --no-cache-dir --prefix=/install faiss-cpu==1.8.0; \
     fi
+
 
 # Install the rest of the dependencies
 # Note: numpy/pandas/faiss may be omitted from requirements.txt so they don’t override the pins above.
