@@ -8,6 +8,11 @@ STREAMLIT_LOG=/empathic-conversational-agent-lab/data/streamlit.log
 echo "Starting preload_documents.py in background…" | tee -a "$PRELOAD_LOG"
 ( python scripts/preload_documents.py >> "$PRELOAD_LOG" 2>&1 || echo "⚠️ Preload failed, continuing..." >> "$PRELOAD_LOG" ) &
 
+
+#!/bin/sh
+# echo ">>> Skipping preload for debug"
+# exec streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+
 # 2) Run Streamlit as main process
 echo "Launching Streamlit…" | tee -a "$STREAMLIT_LOG"
 exec streamlit run frontend/0_Intro.py --server.address 0.0.0.0 --server.port 8501 >> "$STREAMLIT_LOG" 2>&1
