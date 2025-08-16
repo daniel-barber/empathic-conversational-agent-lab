@@ -1,5 +1,9 @@
 import streamlit as st
-import pandas as pd
+try:
+    import pandas as pd
+except Exception as e:
+    st.error(f"pandas failed to import on this device: {e}")
+    st.stop()
 import sqlite3
 
 from backend.database.db import (

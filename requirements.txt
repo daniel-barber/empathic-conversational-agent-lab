@@ -3,16 +3,18 @@ streamlit>=1.30
 python-dotenv>=1.0.0
 requests>=2.31
 httpx>=0.24
-numpy~=2.2.4
 
+# numpy/pandas are installed conditionally in Dockerfile for ARM safety
+# numpy
+# pandas
 
 # LLM APIs
-openai>=1.0  # (only if you're using OpenAI)
+# openai>=1.0            # uncomment only if you actually use OpenAI
 replicate>=0.15.4
 
 # RAG / Embeddings
 sentence-transformers>=2.2
-faiss-cpu>=1.7
+# faiss-cpu>=1.7         # installed only on amd64 via Dockerfile; keep commented to avoid ARM SIGILL
 pymilvus>=2.5.9
 PyPDF2~=3.0.1
 tiktoken>=0.6.0
@@ -23,18 +25,14 @@ transformers>=4.37
 scikit-learn>=1.3
 matplotlib
 
-
 # Database and data handling
 sqlalchemy>=2.0
 aiosqlite>=0.19
-pandas>=2.1
 openpyxl
 
-
-# Performance
-requests
+# Performance / Networking (dedupe)
 urllib3
+# requests (already declared above)
 
-
-
-networkx<=3.0.0 # to avoid SyntaxError in dataclass
+# Misc
+networkx<=3.0.0  # to avoid SyntaxError in dataclass
