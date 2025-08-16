@@ -1,10 +1,12 @@
 # backend/llm/replicate_client_chatbot.py
 
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, TYPE_CHECKING
 import replicate
 from langdetect import detect
-from backend.llm.document_retriever_RAG import DocumentRetriever
 from backend.database.db import create_tables, get_active_prompt
+
+if TYPE_CHECKING:  # pragma: no cover - imported only for type hints
+    from backend.llm.document_retriever_RAG import DocumentRetriever
 
 class ReplicateClientChatbot:
     """
@@ -22,13 +24,14 @@ class ReplicateClientChatbot:
         self,
         api_token: str,
         model: Optional[str] = None,
-        retriever: Optional[DocumentRetriever] = None,
+        retriever: Optional['DocumentRetriever'] = None,
         timeout: Tuple[float, float] = (5, 300)
     ):
         create_tables()
         self.client = replicate.Client(api_token=api_token, timeout=timeout)
         self.model = model or self.DEFAULT_MODEL
-        self.retriever = retriever or DocumentRetriever()
+        # defer loading heavy retriever until it's actually needed
+        self.retriever = retriever
 
     def generate_response(
         self,
@@ -42,6 +45,9 @@ class ReplicateClientChatbot:
         prompt_text = system_prompt or get_active_prompt() or self.DEFAULT_SYSTEM_PROMPT
 
         # 2) Retrieve and bullet‐list the RAG context
+        if self.retriever is None:
+            from backend.llm.document_retriever_RAG import DocumentRetriever
+            self.retriever = DocumentRetriever()
         raw_docs = self.retriever.retrieve(query=user_input, top_k=5)
         context_str = "\n".join(f"- {chunk}" for chunk in raw_docs)
 
