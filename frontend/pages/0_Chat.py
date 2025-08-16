@@ -49,12 +49,8 @@ from backend.database.db import (  # noqa: E402
     get_active_prompt_id,
     update_epitome_eval,
 )
-from backend.llm.document_retriever_RAG import DocumentRetriever  # noqa: E402
 
-# 5) Initialize retriever
-retriever = DocumentRetriever()
-
-# 7) Prepare database
+# 5) Prepare database
 create_tables()
 
 # 8) Streamlit UI
@@ -67,9 +63,13 @@ if "chat_history" not in st.session_state:
     st.session_state.pair_number = 1
     st.session_state.feedback_given = set()  # Set for already rated messages
 
-# Initialize chatbot
-token = get_secret("REPLICATE_API_TOKEN")
-chatbot = ReplicateClientChatbot(api_token=token, retriever=retriever)
+# Initialize chatbot lazily and cache across reruns
+@st.cache_resource
+def get_chatbot() -> ReplicateClientChatbot:
+    token = get_secret("REPLICATE_API_TOKEN")
+    return ReplicateClientChatbot(api_token=token)
+
+chatbot = get_chatbot()
 
 # Display chat history
 for i, turn in enumerate(st.session_state.chat_history):
