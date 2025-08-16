@@ -74,7 +74,10 @@ services:
     depends_on:
       - milvus-standalone
     networks:
-      - chatbot-network
+      chatbot-network:
+        aliases:
+            - chatbot-app
+
     restart: unless-stopped
 
 # 5) Reverse-proxy for HTTP/HTTPS
