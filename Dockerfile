@@ -21,13 +21,16 @@ RUN pip install --upgrade pip
 # We install conservative, ARM-friendly versions here.
 # On amd64, we keep your torch install and (optionally) faiss.
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
-      echo ">>> ARM64 build: installing ARM-safe numpy/pandas pins"; \
+      echo ">>> ARM64 build: installing torch and ARM-safe numpy/pandas pins"; \
       pip install --no-cache-dir --prefix=/install \
-        "numpy==1.24.4" "pandas==2.0.3"; \
+        torch==2.2.0 \
+        --index-url https://download.pytorch.org/whl/arm64; \
+      pip install --no-cache-dir --prefix=/install \
+        numpy==1.24.4 pandas==2.0.3; \
     else \
       echo ">>> amd64 build: installing torch CPU wheel"; \
       pip install --no-cache-dir --prefix=/install \
-        torch==2.7.1 \
+        torch==2.2.0 \
         --index-url https://download.pytorch.org/whl/cpu; \
       # (optional) faiss on x86 only; skip on ARM
       pip install --no-cache-dir --prefix=/install faiss-cpu==1.8.0; \
